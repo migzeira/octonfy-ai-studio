@@ -15,14 +15,15 @@ import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import AgentsPage from "@/pages/AgentsPage";
 import CreditsPage from "@/pages/CreditsPage";
-import NotFound from "@/pages/NotFound";
-
 import OfficePage from "@/pages/OfficePage";
-import {
-  LayoutDashboard, Building2, Users, CheckSquare, FileText,
-  Video, Clock, Plug, Coins, Activity, Settings,
-} from "lucide-react";
-import PlaceholderPage from "@/components/PlaceholderPage";
+import TasksPage from "@/pages/TasksPage";
+import DocumentsPage from "@/pages/DocumentsPage";
+import MeetingsPage from "@/pages/MeetingsPage";
+import SchedulesPage from "@/pages/SchedulesPage";
+import IntegrationsPage from "@/pages/IntegrationsPage";
+import LogsPage from "@/pages/LogsPage";
+import SettingsPage from "@/pages/SettingsPage";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -57,14 +58,14 @@ const App = () => (
               <Route path="/dashboard" element={<PrivateLayout><DashboardPage /></PrivateLayout>} />
               <Route path="/office" element={<PrivateLayout><OfficePage /></PrivateLayout>} />
               <Route path="/agents" element={<PrivateLayout><AgentsPage /></PrivateLayout>} />
-              <Route path="/tasks" element={<PrivateLayout><PlaceholderPage title="Tarefas" icon={<CheckSquare className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/documents" element={<PrivateLayout><PlaceholderPage title="Documentos" icon={<FileText className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/meetings" element={<PrivateLayout><PlaceholderPage title="Reuniões" icon={<Video className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/schedules" element={<PrivateLayout><PlaceholderPage title="Agendamentos" icon={<Clock className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/integrations" element={<PrivateLayout><PlaceholderPage title="Integrações" icon={<Plug className="h-8 w-8" />} /></PrivateLayout>} />
+              <Route path="/tasks" element={<PrivateLayout><TasksPage /></PrivateLayout>} />
+              <Route path="/documents" element={<PrivateLayout><DocumentsPage /></PrivateLayout>} />
+              <Route path="/meetings" element={<PrivateLayout><MeetingsPage /></PrivateLayout>} />
+              <Route path="/schedules" element={<PrivateLayout><SchedulesPage /></PrivateLayout>} />
+              <Route path="/integrations" element={<PrivateLayout><IntegrationsPage /></PrivateLayout>} />
               <Route path="/credits" element={<PrivateLayout><CreditsPage /></PrivateLayout>} />
-              <Route path="/logs" element={<PrivateLayout><PlaceholderPage title="Logs" icon={<Activity className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/settings" element={<PrivateLayout><PlaceholderPage title="Configurações" icon={<Settings className="h-8 w-8" />} /></PrivateLayout>} />
+              <Route path="/logs" element={<PrivateLayout><LogsPage /></PrivateLayout>} />
+              <Route path="/settings" element={<PrivateLayout><SettingsPage /></PrivateLayout>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
