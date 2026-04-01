@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ const STEP_SUBTITLES = [
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refetch: refetchWorkspace } = useWorkspace();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -42,7 +44,6 @@ export default function OnboardingPage() {
   const [agentColor, setAgentColor] = useState("#6366f1");
   const [agentPrompt, setAgentPrompt] = useState("");
 
-  // Set default prompt when company name changes
   const getDefaultPrompt = (name: string) =>
     `Você é o CEO da empresa ${name || "[nome]"}. Sua função é coordenar a equipe, delegar tarefas, conduzir reuniões e garantir que os objetivos da empresa sejam alcançados. Tome decisões estratégicas, motive a equipe e mantenha o foco nos resultados.`;
 
@@ -57,19 +58,19 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
-      // Guard: if workspace already exists, skip creation
       const { data: existing } = await supabase
         .from("workspaces")
         .select("id")
         .eq("user_id", user.id)
         .limit(1)
         .maybeSingle();
+
       if (existing) {
+        await refetchWorkspace();
         navigate("/office", { replace: true });
         return;
       }
 
-      // 1. Create workspace
       const { data: ws, error: wsErr } = await supabase
         .from("workspaces")
         .insert({ user_id: user.id, name: companyName, mission, products, culture })
@@ -78,10 +79,8 @@ export default function OnboardingPage() {
 
       if (wsErr || !ws) throw wsErr;
 
-      // 2. Create credits
       await supabase.from("credits").insert({ workspace_id: ws.id, balance: 500 });
 
-      // 3. Create CEO agent
       const prompt = agentPrompt || getDefaultPrompt(companyName);
       await supabase.from("agents").insert({
         workspace_id: ws.id,
@@ -93,7 +92,6 @@ export default function OnboardingPage() {
         system_prompt: prompt,
       });
 
-      // 4. Log event
       await supabase.from("event_logs").insert({
         workspace_id: ws.id,
         event_type: "hired",
@@ -102,6 +100,7 @@ export default function OnboardingPage() {
         target: agentName,
       });
 
+      await refetchWorkspace();
       navigate("/office", { replace: true });
     } catch (err: any) {
       console.error(err);
@@ -112,12 +111,11 @@ export default function OnboardingPage() {
 
   const handleNext = () => {
     if (step < 4) setStep(step + 1);
-    else handleFinish();
+    else void handleFinish();
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      {/* Progress Bar */}
       <div className="w-full max-w-lg mb-10">
         <div className="flex items-center justify-between">
           {[0, 1, 2, 3, 4].map((s) => (
@@ -127,8 +125,8 @@ export default function OnboardingPage() {
                   s < step
                     ? "bg-accent text-white"
                     : s === step
-                    ? "bg-primary text-white animate-pulse-slow glow-neon"
-                    : "bg-muted text-muted-foreground"
+                      ? "bg-primary text-white animate-pulse-slow glow-neon"
+                      : "bg-muted text-muted-foreground"
                 }`}
               >
                 {s < step ? <Check className="h-5 w-5" /> : s + 1}
