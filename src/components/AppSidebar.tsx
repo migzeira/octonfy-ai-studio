@@ -6,7 +6,7 @@ import {
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { useCredits } from "@/hooks/useCredits";
+import { useRealtimeCredits } from "@/hooks/useRealtimeCredits";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
