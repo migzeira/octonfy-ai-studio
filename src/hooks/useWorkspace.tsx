@@ -36,6 +36,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+
+    setLoading(true);
+
     const { data, error } = await supabase
       .from("workspaces")
       .select("*")
@@ -49,11 +52,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     } else {
       setWorkspace(null);
     }
+
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchWorkspace();
+    void fetchWorkspace();
   }, [user]);
 
   return (

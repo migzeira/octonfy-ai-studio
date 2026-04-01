@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureWorkspaceForUser } from "@/lib/ensureWorkspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,22 +21,41 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
 
-    if (password.length < 8) { setError("A senha deve ter no mínimo 8 caracteres."); return; }
-    if (password !== confirmPw) { setError("As senhas não coincidem."); return; }
+    if (password.length < 8) {
+      setError("A senha deve ter no mínimo 8 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPw) {
+      setError("As senhas não coincidem.");
+      return;
+    }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name }, emailRedirectTo: window.location.origin },
-    });
 
-    if (error) {
-      setError(error.message);
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name }, emailRedirectTo: window.location.origin },
+      });
+
+      if (signUpError) throw signUpError;
+
+      if (data.session && data.user) {
+        await ensureWorkspaceForUser(data.user);
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      navigate("/login", { replace: true });
+    } catch (err: any) {
+      setError(err?.message || "Não foi possível criar a conta.");
       setLoading(false);
       return;
     }
-    navigate("/onboarding", { replace: true });
+
+    setLoading(false);
   };
 
   return (
