@@ -37,7 +37,7 @@ const INTEGRATIONS_DEF = [
 ];
 
 export default function IntegrationsPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectModal, setConnectModal] = useState<typeof INTEGRATIONS_DEF[0] | null>(null);
@@ -52,6 +52,17 @@ export default function IntegrationsPage() {
   };
 
   useEffect(() => { fetchIntegrations(); }, [workspace?.id]);
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
 
   const isConnected = (type: string) => integrations.find((i) => i.type === type && i.is_connected);
 

@@ -7,7 +7,6 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useRealtimeCredits } from "@/hooks/useRealtimeCredits";
-import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
@@ -30,7 +29,7 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const { workspace } = useWorkspace();
   const { credits } = useRealtimeCredits(workspace?.id);
-  const { isAdmin } = useAdmin();
+  
   const balance = credits?.balance || 0;
   const [collapsed, setCollapsed] = useState(false);
 
@@ -99,7 +98,7 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
               </div>
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
-                {isAdmin && <span className="text-[10px] font-bold text-primary">👑 Admin</span>}
+                
               </div>
               <button onClick={handleLogout} className="text-muted-foreground hover:text-foreground" title="Sair">
                 <LogOut className="h-4 w-4" />

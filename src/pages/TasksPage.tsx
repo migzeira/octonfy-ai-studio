@@ -34,7 +34,7 @@ const PRIORITIES = ["all", "urgent", "high", "medium", "low"] as const;
 const DATE_FILTERS = ["all", "today", "week", "overdue"] as const;
 
 export default function TasksPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
   const { agents } = useRealtimeAgents(workspace?.id);
   const { tasks, loading } = useRealtimeTasks(workspace?.id);
 
@@ -121,6 +121,17 @@ export default function TasksPage() {
   };
 
   const draggedTask = activeId ? tasks.find((t) => t.id === activeId) : null;
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 flex flex-col h-[calc(100vh-0px)] max-h-screen">
+        <Skeleton className="h-12 w-64 mb-4" />
+        <div className="flex gap-4 flex-1">
+          {COLUMNS.map((c) => <Skeleton key={c.id} className="flex-1 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 flex flex-col h-[calc(100vh-0px)] max-h-screen">

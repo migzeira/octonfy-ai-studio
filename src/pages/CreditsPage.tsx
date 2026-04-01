@@ -48,7 +48,7 @@ function timeAgo(d: string | null) {
 }
 
 export default function CreditsPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
   const { credits, loading: creditsLoading } = useRealtimeCredits(workspace?.id);
   const { agents } = useRealtimeAgents(workspace?.id);
 
@@ -60,11 +60,10 @@ export default function CreditsPage() {
   const [totalTx, setTotalTx] = useState(0);
   const [buyingPkg, setBuyingPkg] = useState<typeof PACKAGES[0] | null>(null);
   const [buying, setBuying] = useState(false);
-
-  // Charts data
   const [agentChart, setAgentChart] = useState<any[]>([]);
   const [modelChart, setModelChart] = useState<any[]>([]);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
+
 
   const fetchTransactions = async () => {
     if (!workspace) return;
@@ -215,6 +214,15 @@ export default function CreditsPage() {
     a.download = "transacoes.csv";
     a.click();
   };
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">

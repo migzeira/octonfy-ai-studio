@@ -20,7 +20,11 @@ export function useRealtimeTasks(workspaceId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
     const fetchTasks = async () => {
       const { data } = await supabase
         .from("tasks")

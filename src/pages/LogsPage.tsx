@@ -37,7 +37,7 @@ const DATE_RANGES = [
 ];
 
 export default function LogsPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
   const { agents } = useRealtimeAgents(workspace?.id);
   const [events, setEvents] = useState<EventLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +48,7 @@ export default function LogsPage() {
   const [expandedMeta, setExpandedMeta] = useState<string | null>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 30;
+
 
   const getDateFilter = () => {
     const now = new Date();
@@ -104,6 +105,15 @@ export default function LogsPage() {
     }
     return "#94a3b8";
   };
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
