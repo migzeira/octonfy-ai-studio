@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch meeting
     const { data: meeting } = await admin.from("meetings").select("*").eq("id", meeting_id).single();
     if (!meeting) {
       return new Response(JSON.stringify({ error: "Meeting not found" }), {
@@ -62,9 +63,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Update meeting status
+    await admin.from("meetings").update({
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    }).eq("id", meeting_id);
+
+    // Set all participants to in_meeting
+    for (const agent of agents) {
+      await admin.from("agents").update({ status: "in_meeting" }).eq("id", agent.id);
+    }
+
     const transcript: Array<{ agent_id: string; agent_name: string; content: string; timestamp: string }> = [];
     let totalCredits = 0;
 
+    // Each agent speaks in turn
     for (const agent of agents) {
       await admin.from("agents").update({ status: "thinking" }).eq("id", agent.id);
 
@@ -76,10 +89,11 @@ Empresa: ${ws?.name || ""}. Missão: ${ws?.mission || ""}. Produtos: ${ws?.produ
 
 Você está em uma reunião chamada "${meeting.title}".
 ${meeting.summary ? `Pauta: ${meeting.summary}` : ""}
+Participantes: ${agents.map(a => `${a.name} (${a.role})`).join(", ")}
 
-${prevSpeech ? `O que já foi dito:\n${prevSpeech}` : "Você é o primeiro a falar. Abra a reunião."}
+${prevSpeech ? `O que já foi dito:\n${prevSpeech}` : "Você é o primeiro a falar. Abra a reunião de forma breve e profissional."}
 
-Faça sua contribuição de forma concisa (2-4 parágrafos). Seja construtivo e específico.`;
+Faça sua contribuição de forma concisa (2-4 parágrafos). Seja construtivo e específico ao seu cargo.`;
 
       const aiModel = MODEL_MAP[agent.model || "claude-sonnet"] || "google/gemini-2.5-flash";
 
@@ -95,16 +109,15 @@ Faça sua contribuição de forma concisa (2-4 parágrafos). Seja construtivo e 
             { role: "system", content: systemPrompt },
             { role: "user", content: "Faça sua contribuição na reunião agora." },
           ],
-          max_tokens: 1000,
-          temperature: 0.7,
+          max_tokens: 1000, temperature: 0.7,
         }),
       });
 
-      let content = "...";
+      let content = "Sem contribuição no momento.";
       let tokensUsed = 100;
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
-        content = aiData.choices?.[0]?.message?.content || "Sem contribuição.";
+        content = aiData.choices?.[0]?.message?.content || content;
         tokensUsed = aiData.usage?.total_tokens || 100;
       }
 
@@ -112,7 +125,10 @@ Faça sua contribuição de forma concisa (2-4 parágrafos). Seja construtivo e 
       const creditsUsed = Math.max(1, Math.ceil(tokensUsed / 1000) * costPer1k);
       totalCredits += creditsUsed;
 
-      const entry = { agent_id: agent.id, agent_name: agent.name, content, timestamp: new Date().toISOString() };
+      const entry = {
+        agent_id: agent.id, agent_name: agent.name,
+        content, timestamp: new Date().toISOString(),
+      };
       transcript.push(entry);
 
       // Save message
@@ -122,10 +138,10 @@ Faça sua contribuição de forma concisa (2-4 parágrafos). Seja construtivo e 
         tokens_used: tokensUsed, credits_used: creditsUsed,
       });
 
-      // Update transcript
+      // Update transcript in meeting
       await admin.from("meetings").update({ transcript }).eq("id", meeting_id);
 
-      // Update agent
+      // Update agent stats
       await admin.from("agents").update({
         status: "in_meeting",
         messages_count: (agent.messages_count || 0) + 1,
@@ -148,7 +164,17 @@ Faça sua contribuição de forma concisa (2-4 parágrafos). Seja construtivo e 
       }).eq("workspace_id", workspace_id);
     }
 
-    return new Response(JSON.stringify({ transcript, credits_used: totalCredits }), {
+    // Event log
+    await admin.from("event_logs").insert({
+      workspace_id, event_type: "meeting_started",
+      actor: agents[0]?.name || "Sistema",
+      description: `Reunião "${meeting.title}" iniciada com ${agents.length} participantes`,
+      metadata: { meeting_id, participants: agents.map(a => a.name), credits_used: totalCredits },
+    });
+
+    return new Response(JSON.stringify({
+      meeting_id, transcript, total_credits_used: totalCredits,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
