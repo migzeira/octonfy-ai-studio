@@ -20,6 +20,12 @@ const FILTERS = ["all", "scheduled", "in_progress", "completed"];
 
 export default function MeetingsPage() {
   const { workspace, loading: wsLoading } = useWorkspace();
+  const { agents } = useRealtimeAgents(workspace?.id);
+  const { meetings, loading } = useRealtimeMeetings(workspace?.id);
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState("all");
+  const [newOpen, setNewOpen] = useState(false);
+  const [transcriptMeeting, setTranscriptMeeting] = useState<any>(null);
 
   if (wsLoading || !workspace) {
     return (
@@ -29,12 +35,6 @@ export default function MeetingsPage() {
       </div>
     );
   }
-  const { agents } = useRealtimeAgents(workspace?.id);
-  const { meetings, loading } = useRealtimeMeetings(workspace?.id);
-  const navigate = useNavigate();
-  const [filter, setFilter] = useState("all");
-  const [newOpen, setNewOpen] = useState(false);
-  const [transcriptMeeting, setTranscriptMeeting] = useState<any>(null);
 
   const filtered = useMemo(() => {
     if (filter === "all") return meetings;

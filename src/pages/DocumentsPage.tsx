@@ -25,6 +25,13 @@ const AUTHORS = ["all", "user", "ai"];
 
 export default function DocumentsPage() {
   const { workspace, loading: wsLoading } = useWorkspace();
+  const { documents, loading } = useRealtimeDocuments(workspace?.id);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [authorFilter, setAuthorFilter] = useState("all");
+  const [newDocOpen, setNewDocOpen] = useState(false);
+  const [editorDoc, setEditorDoc] = useState<Document | null>(null);
+  const [deleteDoc, setDeleteDoc] = useState<Document | null>(null);
 
   if (wsLoading || !workspace) {
     return (
@@ -36,13 +43,6 @@ export default function DocumentsPage() {
       </div>
     );
   }
-  const { documents, loading } = useRealtimeDocuments(workspace?.id);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [authorFilter, setAuthorFilter] = useState("all");
-  const [newDocOpen, setNewDocOpen] = useState(false);
-  const [editorDoc, setEditorDoc] = useState<Document | null>(null);
-  const [deleteDoc, setDeleteDoc] = useState<Document | null>(null);
 
   const filtered = useMemo(() => {
     return documents.filter((d) => {

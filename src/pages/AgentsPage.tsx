@@ -37,6 +37,14 @@ const statusBadge: Record<string, { label: string; color: string }> = {
 
 export default function AgentsPage() {
   const { workspace, loading: wsLoading } = useWorkspace();
+  const { agents, loading } = useRealtimeAgents(workspace?.id);
+
+  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
+  const [modelFilter, setModelFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [hireOpen, setHireOpen] = useState(false);
+  const [editAgent, setEditAgent] = useState<Agent | null>(null);
+  const [fireAgent, setFireAgent] = useState<Agent | null>(null);
 
   if (wsLoading || !workspace) {
     return (
@@ -48,7 +56,6 @@ export default function AgentsPage() {
       </div>
     );
   }
-  const { agents, loading } = useRealtimeAgents(workspace?.id);
 
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
   const [modelFilter, setModelFilter] = useState("");
