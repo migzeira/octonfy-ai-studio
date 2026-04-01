@@ -12,6 +12,9 @@ import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import OnboardingPage from "@/pages/OnboardingPage";
+import DashboardPage from "@/pages/DashboardPage";
+import AgentsPage from "@/pages/AgentsPage";
+import CreditsPage from "@/pages/CreditsPage";
 import NotFound from "@/pages/NotFound";
 
 import {
@@ -50,15 +53,15 @@ const App = () => (
               } />
 
               {/* Private */}
-              <Route path="/dashboard" element={<PrivateLayout><PlaceholderPage title="Dashboard" icon={<LayoutDashboard className="h-8 w-8" />} /></PrivateLayout>} />
+              <Route path="/dashboard" element={<PrivateLayout><DashboardPage /></PrivateLayout>} />
               <Route path="/office" element={<PrivateLayout><PlaceholderPage title="Escritório" icon={<Building2 className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/agents" element={<PrivateLayout><PlaceholderPage title="Agentes" icon={<Users className="h-8 w-8" />} /></PrivateLayout>} />
+              <Route path="/agents" element={<PrivateLayout><AgentsPage /></PrivateLayout>} />
               <Route path="/tasks" element={<PrivateLayout><PlaceholderPage title="Tarefas" icon={<CheckSquare className="h-8 w-8" />} /></PrivateLayout>} />
               <Route path="/documents" element={<PrivateLayout><PlaceholderPage title="Documentos" icon={<FileText className="h-8 w-8" />} /></PrivateLayout>} />
               <Route path="/meetings" element={<PrivateLayout><PlaceholderPage title="Reuniões" icon={<Video className="h-8 w-8" />} /></PrivateLayout>} />
               <Route path="/schedules" element={<PrivateLayout><PlaceholderPage title="Agendamentos" icon={<Clock className="h-8 w-8" />} /></PrivateLayout>} />
               <Route path="/integrations" element={<PrivateLayout><PlaceholderPage title="Integrações" icon={<Plug className="h-8 w-8" />} /></PrivateLayout>} />
-              <Route path="/credits" element={<PrivateLayout><PlaceholderPage title="Créditos" icon={<Coins className="h-8 w-8" />} /></PrivateLayout>} />
+              <Route path="/credits" element={<PrivateLayout><CreditsPage /></PrivateLayout>} />
               <Route path="/logs" element={<PrivateLayout><PlaceholderPage title="Logs" icon={<Activity className="h-8 w-8" />} /></PrivateLayout>} />
               <Route path="/settings" element={<PrivateLayout><PlaceholderPage title="Configurações" icon={<Settings className="h-8 w-8" />} /></PrivateLayout>} />
 

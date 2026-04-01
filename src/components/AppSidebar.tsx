@@ -6,7 +6,7 @@ import {
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { useCredits } from "@/hooks/useCredits";
+import { useRealtimeCredits } from "@/hooks/useRealtimeCredits";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
@@ -28,7 +28,8 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { workspace } = useWorkspace();
-  const { balance } = useCredits();
+  const { credits } = useRealtimeCredits(workspace?.id);
+  const balance = credits?.balance || 0;
   const [collapsed, setCollapsed] = useState(false);
 
   const creditColor = balance > 200 ? "text-success" : balance >= 50 ? "text-warning" : "text-destructive";
