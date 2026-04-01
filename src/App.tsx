@@ -7,6 +7,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { WorkspaceProvider } from "@/hooks/useWorkspace";
 import { PrivateRoute } from "@/components/PrivateRoute";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
@@ -36,44 +38,47 @@ function PrivateLayout({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <WorkspaceProvider>
-            <Routes>
-              {/* Public */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <ConnectionStatus />
+        <BrowserRouter>
+          <AuthProvider>
+            <WorkspaceProvider>
+              <Routes>
+                {/* Public */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              {/* Semi-protected (auth only, no workspace required) */}
-              <Route path="/onboarding" element={
-                <PrivateRoute requireWorkspace={false}><OnboardingPage /></PrivateRoute>
-              } />
+                {/* Semi-protected (auth only, no workspace required) */}
+                <Route path="/onboarding" element={
+                  <PrivateRoute requireWorkspace={false}><OnboardingPage /></PrivateRoute>
+                } />
 
-              {/* Private */}
-              <Route path="/dashboard" element={<PrivateLayout><DashboardPage /></PrivateLayout>} />
-              <Route path="/office" element={<PrivateLayout><OfficePage /></PrivateLayout>} />
-              <Route path="/agents" element={<PrivateLayout><AgentsPage /></PrivateLayout>} />
-              <Route path="/tasks" element={<PrivateLayout><TasksPage /></PrivateLayout>} />
-              <Route path="/documents" element={<PrivateLayout><DocumentsPage /></PrivateLayout>} />
-              <Route path="/meetings" element={<PrivateLayout><MeetingsPage /></PrivateLayout>} />
-              <Route path="/schedules" element={<PrivateLayout><SchedulesPage /></PrivateLayout>} />
-              <Route path="/integrations" element={<PrivateLayout><IntegrationsPage /></PrivateLayout>} />
-              <Route path="/credits" element={<PrivateLayout><CreditsPage /></PrivateLayout>} />
-              <Route path="/logs" element={<PrivateLayout><LogsPage /></PrivateLayout>} />
-              <Route path="/settings" element={<PrivateLayout><SettingsPage /></PrivateLayout>} />
+                {/* Private */}
+                <Route path="/dashboard" element={<PrivateLayout><ErrorBoundary><DashboardPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/office" element={<PrivateLayout><ErrorBoundary><OfficePage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/agents" element={<PrivateLayout><ErrorBoundary><AgentsPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/tasks" element={<PrivateLayout><ErrorBoundary><TasksPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/documents" element={<PrivateLayout><ErrorBoundary><DocumentsPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/meetings" element={<PrivateLayout><ErrorBoundary><MeetingsPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/schedules" element={<PrivateLayout><ErrorBoundary><SchedulesPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/integrations" element={<PrivateLayout><ErrorBoundary><IntegrationsPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/credits" element={<PrivateLayout><ErrorBoundary><CreditsPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/logs" element={<PrivateLayout><ErrorBoundary><LogsPage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/settings" element={<PrivateLayout><ErrorBoundary><SettingsPage /></ErrorBoundary></PrivateLayout>} />
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </WorkspaceProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </WorkspaceProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
