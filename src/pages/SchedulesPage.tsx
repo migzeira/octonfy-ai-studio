@@ -71,16 +71,6 @@ export default function SchedulesPage() {
       </div>
     );
   }
-
-  const fetchSchedules = async () => {
-    if (!workspace?.id) return;
-    const { data } = await supabase.from("schedules").select("*").eq("workspace_id", workspace.id).order("created_at", { ascending: false });
-    if (data) setSchedules(data as Schedule[]);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchSchedules(); }, [workspace?.id]);
-
   const resetForm = () => {
     setFormName(""); setFormDesc(""); setFormAgent(""); setFormInstruction("");
     setFormFreq("daily"); setFormTime("08:00"); setFormDate(""); setFormDays([]);
