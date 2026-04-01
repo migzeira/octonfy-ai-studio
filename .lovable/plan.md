@@ -1,133 +1,92 @@
 
-## Diagnóstico real
 
-O problema não parece mais ser onboarding nem apenas `workspace = null`.
+# Escritório Pixel Art — Agentes Animados 2D
 
-Pelos arquivos atuais, o app autenticado monta assim:
+## O que será feito
+
+Recriar o canvas do escritório com estética **pixel art** inspirada na referência "Pixel Agents". Os agentes serão personagens 2D desenhados com pixels (retângulos pequenos no Konva), com animações baseadas no status:
+
+- **idle** → personagem andando pelo escritório (animação de caminhada leve)
+- **working** → sentado na mesa digitando no computador (animação de mãos)
+- **thinking** → sentado com balão de pensamento "..."
+- **in_meeting** → sentado na sala de reunião
+- **messaging** → no computador com ícone de chat piscando
+- **offline** → personagem cinza, parado, semi-transparente
+
+## Estrutura visual do escritório
 
 ```text
-App
-└─ PrivateRoute
-   └─ AppSidebar
-      ├─ useWorkspace()
-      ├─ useRealtimeCredits(workspace?.id)
-      └─ useAdmin()
-           └─ consulta user_roles
+┌─────────────────────────────┬──────────────────┐
+│                             │                  │
+│   ÁREA DE TRABALHO          │  SALA DE REUNIÃO │
+│   (mesas pixel art +        │  (mesa oval +    │
+│    computadores + cadeiras)  │   cadeiras)      │
+│                             │                  │
+│   Piso madeira (tiles)      │  Piso azul       │
+│                             │                  │
+├─────────────────────────────┤  Sofás pixel     │
+│                             │  Plantas         │
+│   ÁREA DE DESCANSO          │                  │
+│   (sofá, planta, café)      ├──────────────────┤
+│                             │  Piso xadrez     │
+└─────────────────────────────┴──────────────────┘
 ```
 
-O ponto mais suspeito hoje é o `useAdmin()` dentro do `AppSidebar`. Ele roda em toda rota privada, inclusive logo após login. Como a tabela `user_roles` tem RLS específica e esse hook não trata estado de erro/carregamento de forma defensiva, ele pode estar derrubando o shell autenticado inteiro antes mesmo da página estabilizar. Isso bate com o seu relato: o dashboard aparece e logo some.
+## Abordagem técnica
 
-Além disso, ainda há páginas e hooks com guards incompletos:
-- `useRealtimeTasks`, `useRealtimeDocuments`, `useCredits` não encerram loading quando `workspace`/`workspaceId` está ausente
-- várias páginas usam `workspace!.id` em modais e ações
-- o shell privado ainda depende de `AppSidebar` renderizar sem falhas para qualquer rota abrir
+### 1. Sprite system com Konva shapes
+Criar funções que desenham personagens pixel art usando `Konva.Rect` em grid (cada "pixel" = retângulo 3x3 ou 4x4). Cada agente terá cor baseada no `avatar_color`.
 
-## Correção proposta imediata
+Frames de animação:
+- **Walk** (2 frames): pernas alternando
+- **Sit/Type** (2 frames): braços alternando no teclado
+- **Think** (1 frame + balão animado)
+- **Idle standing** (1 frame)
 
-### 1. Remover o hook `useAdmin()` do shell principal
-- Tirar `useAdmin()` de `AppSidebar`
-- Remover badge de admin da sidebar por enquanto
-- Deixar a lógica admin isolada apenas onde for realmente necessária
+### 2. Cenário pixel art
+Substituir o fundo atual (dot grid + retângulos escuros) por:
+- **Tiles de piso** em padrão madeira (marrom claro/escuro alternado)
+- **Mesas pixel** com monitor, teclado, caneca
+- **Sala de reunião** com piso diferente, mesa oval, cadeiras
+- **Plantas decorativas** nos cantos
+- **Paredes** com textura de tijolo/concreto
 
-Objetivo: eliminar a fonte mais provável do crash no layout autenticado.
+### 3. Animação por status
+Usar `Konva.Animation` com frame counter para alternar sprites:
+- idle: personagem se move lentamente pelo escritório (random walk dentro da área)
+- working: sprite sentado na mesa, braços alternando a cada 500ms
+- thinking: sprite parado + balão "..." com dots pulsando
+- in_meeting: sprite sentado na sala de reunião
+- offline: sprite cinza estático
 
-### 2. Blindar o layout privado
-- Refatorar `PrivateLayout` para mostrar um shell mínimo seguro enquanto auth/workspace estão resolvendo
-- Só montar `AppSidebar` quando:
-  - auth terminou
-  - `requireWorkspace` estiver satisfeito
-- Se não houver workspace ainda, navegar direto para `/dashboard` com fallback de setup leve, sem depender de onboarding visual
+### 4. Labels flutuantes
+Acima de cada personagem: badge escuro com status ("Idle", "Working", "Running: ...") e nome/role abaixo — similar à referência.
 
-### 3. Simplificar drasticamente o `DashboardPage`
-Trocar temporariamente o dashboard atual por uma versão segura e mínima:
-- saudação
-- nome do workspace
-- saldo de créditos
-- contagem de agentes
-- botões para `/office`, `/agents`, `/settings`
+## Arquivos a criar/modificar
 
-Sem gráficos, sem consultas extras de tasks/meetings/transactions no primeiro render.
+1. **`src/components/office/pixelSprites.ts`** (NOVO)
+   - Funções para desenhar sprites pixel art no Konva
+   - Definições de frames para cada animação
+   - Função de desenho de cenário (mesas, cadeiras, plantas, pisos)
 
-Objetivo: isolar o crash. Se o dashboard abrir estável, depois reintroduzimos partes aos poucos.
+2. **`src/components/office/OfficeCanvas.tsx`** (REESCREVER)
+   - Usar sprites pixel em vez de círculos
+   - Cenário pixel art com tiles
+   - Animação frame-based por status do agente
+   - Manter: zoom, minimap, click handlers
 
-### 4. Corrigir todos os hooks com loading/empty state consistente
-Ajustar:
-- `useRealtimeTasks`
-- `useRealtimeDocuments`
-- `useCredits`
+3. **`src/hooks/useAgentAnimations.tsx`** (REESCREVER)
+   - Simplificar para sistema de frames (tick a cada 500ms)
+   - Controlar posição de agentes idle (random walk)
+   - Alternar frames de sprites por status
 
-Padrão:
-```ts
-if (!workspaceId) {
-  setLoading(false);
-  setDataVazia(...)
-  return;
-}
-```
-
-Também limpar estado anterior ao trocar de workspace para evitar lixo de sessão anterior.
-
-### 5. Blindar páginas privadas contra `workspace!`
-Nas páginas mais críticas:
-- `TasksPage`
-- `DocumentsPage`
-- `MeetingsPage`
-- `SchedulesPage`
-- `SettingsPage`
-- `CreditsPage`
-
-Adicionar early return:
-```ts
-if (!workspace) return <PageLoadingOrEmptyState />
-```
-
-E remover usos diretos de `workspace!.id` no render.
-
-### 6. ErrorBoundary mais útil
-Melhorar o fallback para mostrar:
-- “Erro no layout autenticado” ou “Erro nesta página”
-- botão “Tentar novamente”
-- botão “Voltar ao dashboard”
-
-E logar também:
-- mensagem
-- stack
-- nome da rota atual
-
-## Ordem de implementação
-
-1. Remover `useAdmin()` da `AppSidebar`
-2. Endurecer `PrivateLayout` / `PrivateRoute`
-3. Substituir `DashboardPage` por versão mínima e estável
-4. Corrigir hooks com `loading` travado
-5. Blindar páginas com `workspace` opcional
-6. Melhorar `ErrorBoundary`
+## O que NÃO muda
+- Lógica de dados (hooks, Supabase, realtime)
+- Sidebar de chat/meeting/status
+- Popup de clique no agente
+- Minimap (será atualizado visualmente)
+- Top bar
 
 ## Resultado esperado
+Escritório com visual pixel art retrô, personagens 2D animados que reagem ao status real dos agentes, similar ao "Pixel Agents" da referência.
 
-Depois dessas mudanças:
-- login não deve mais “entrar e cair”
-- usuário novo entra direto no dashboard sem onboarding manual
-- o shell autenticado deixa de depender de consultas frágeis
-- mesmo que uma página específica falhe depois, o app principal continua acessível
-
-## Detalhes técnicos
-
-Arquivos prioritários:
-- `src/components/AppSidebar.tsx`
-- `src/hooks/useAdmin.tsx`
-- `src/components/PrivateRoute.tsx`
-- `src/App.tsx`
-- `src/pages/DashboardPage.tsx`
-- `src/hooks/useRealtimeTasks.tsx`
-- `src/hooks/useRealtimeDocuments.tsx`
-- `src/hooks/useCredits.tsx`
-
-Mudança-chave de estratégia:
-```text
-Antes:
-Login -> monta shell completo -> sidebar consulta admin/créditos -> página consulta vários dados -> crash
-
-Depois:
-Login -> valida auth/workspace -> monta shell mínimo -> dashboard simples -> demais módulos carregam de forma defensiva
-```
