@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { Stage, Layer, Rect, Circle, Ellipse, Group, Text, Line, Shape } from "react-konva";
 import Konva from "konva";
 import type { Agent } from "@/hooks/useRealtimeAgents";
+import { useAgentAnimations } from "@/hooks/useAgentAnimations";
 
 const WORLD_W = 3000;
 const WORLD_H = 2000;
@@ -42,7 +43,11 @@ export default function OfficeCanvas({
   agents, onAgentClick, selectedAgentId, meetingParticipants, containerWidth, containerHeight,
 }: OfficeCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
+  const layerRef = useRef<Konva.Layer>(null);
   const [scale, setScale] = useState(1);
+
+  // Hook for Konva animations
+  useAgentAnimations(layerRef, agents);
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -97,7 +102,7 @@ export default function OfficeCanvas({
         y={-200}
         onWheel={handleWheel}
       >
-        <Layer>
+        <Layer ref={layerRef}>
           {/* Background */}
           <Rect width={WORLD_W} height={WORLD_H} fill="#0a0a0f" />
 
@@ -159,12 +164,9 @@ export default function OfficeCanvas({
                 <Group x={deskPos.x} y={deskPos.y}>
                   <Rect width={200} height={120} fill="#111118" stroke={color} strokeWidth={1.5} cornerRadius={8}
                     shadowColor={color} shadowBlur={8} shadowOpacity={0.3} />
-                  {/* Monitor */}
                   <Rect x={60} y={20} width={80} height={50} fill="#0a0a0f" stroke="#1e1e2e" cornerRadius={4} />
-                  {/* Model badge */}
                   <Rect x={150} y={5} width={46} height={16} fill={modelColor} cornerRadius={8} />
                   <Text x={153} y={7} text={agent.model?.split("-")[0] || "ai"} fill="white" fontSize={9} />
-                  {/* Name below desk */}
                   <Text x={0} y={128} text={agent.name} fill="white" fontSize={13} fontStyle="bold" width={200} align="center" />
                   <Text x={0} y={144} text={agent.role} fill="#94a3b8" fontSize={11} width={200} align="center" />
                 </Group>
@@ -176,8 +178,11 @@ export default function OfficeCanvas({
                   onClick={() => {
                     const stage = stageRef.current;
                     if (!stage) return;
-                    const absPos = stage.getPointerPosition();
-                    onAgentClick(agent, absPos || { x: 0, y: 0 });
+                    const container = stage.container();
+                    const rect = container.getBoundingClientRect();
+                    const pointer = stage.getPointerPosition();
+                    if (!pointer) return;
+                    onAgentClick(agent, { x: pointer.x, y: pointer.y });
                   }}
                   onTap={() => {
                     onAgentClick(agent, { x: agentPos.x, y: agentPos.y });
@@ -200,44 +205,6 @@ export default function OfficeCanvas({
                     x={-14} y={-9} width={28} align="center" />
                   {/* Status dot */}
                   <Circle x={22} y={-22} radius={6} fill={statusColorMap[status] || "#94a3b8"} />
-
-                  {/* Thinking animation ring (static representation) */}
-                  {status === "thinking" && (
-                    <>
-                      <Circle radius={34} fill="transparent" stroke="#3b82f6" strokeWidth={2} dash={[10, 6]} opacity={0.7} />
-                      {/* Thinking dots */}
-                      <Rect x={-20} y={-60} width={40} height={20} fill="#111118" stroke="#3b82f6" strokeWidth={1} cornerRadius={10} />
-                      <Circle x={-8} y={-50} radius={3} fill="#3b82f6" />
-                      <Circle x={0} y={-50} radius={3} fill="#3b82f6" opacity={0.6} />
-                      <Circle x={8} y={-50} radius={3} fill="#3b82f6" opacity={0.3} />
-                    </>
-                  )}
-
-                  {/* Working indicator */}
-                  {status === "working" && (
-                    <Circle radius={32} fill="transparent" stroke="#6366f1" strokeWidth={2} opacity={0.6} />
-                  )}
-
-                  {/* Messaging indicator */}
-                  {status === "messaging" && (
-                    <Shape
-                      x={20} y={-40}
-                      sceneFunc={(ctx, shape) => {
-                        ctx.beginPath();
-                        ctx.moveTo(0, 0);
-                        ctx.lineTo(16, 0);
-                        ctx.lineTo(16, 12);
-                        ctx.lineTo(8, 12);
-                        ctx.lineTo(4, 16);
-                        ctx.lineTo(4, 12);
-                        ctx.lineTo(0, 12);
-                        ctx.closePath();
-                        ctx.fillStyle = "#f59e0b";
-                        ctx.fill();
-                        ctx.fillStrokeShape(shape);
-                      }}
-                    />
-                  )}
                 </Group>
               </Group>
             );
@@ -306,12 +273,10 @@ function MiniMap({
     <Stage width={mmW} height={mmH} onClick={handleClick} style={{ borderRadius: 8, overflow: "hidden" }}>
       <Layer>
         <Rect width={mmW} height={mmH} fill="rgba(17,17,24,0.9)" stroke="#1e1e2e" strokeWidth={1} />
-        {/* Areas */}
         <Rect x={100 * mmScale} y={200 * mmScale} width={1600 * mmScale} height={1200 * mmScale}
           fill="rgba(17,17,24,0.6)" stroke="#1e1e2e" strokeWidth={0.5} />
         <Rect x={1800 * mmScale} y={200 * mmScale} width={900 * mmScale} height={600 * mmScale}
           fill="rgba(99,102,241,0.1)" stroke="#6366f1" strokeWidth={0.5} />
-        {/* Agent dots */}
         {agents.map((agent, i) => {
           const inMeeting = meetingParticipants.includes(agent.id);
           const pos = inMeeting
@@ -327,7 +292,6 @@ function MiniMap({
             />
           );
         })}
-        {/* Viewport rect */}
         <Rect x={vpX} y={vpY} width={vpW} height={vpH} fill="transparent" stroke="#3b82f6" strokeWidth={1} />
       </Layer>
     </Stage>

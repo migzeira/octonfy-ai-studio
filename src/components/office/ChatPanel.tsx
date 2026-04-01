@@ -18,13 +18,119 @@ interface ChatPanelProps {
   onSelectAgent: (id: string | null) => void;
 }
 
+function useTypewriter(text: string, speed = 15) {
+  const [displayed, setDisplayed] = useState("");
+  const [isDone, setIsDone] = useState(false);
+
+  useEffect(() => {
+    if (!text) {
+      setDisplayed("");
+      setIsDone(true);
+      return;
+    }
+    setDisplayed("");
+    setIsDone(false);
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < text.length) {
+        setDisplayed(text.slice(0, i + 1));
+        i++;
+      } else {
+        setIsDone(true);
+        clearInterval(interval);
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return { displayed, isDone };
+}
+
+function TypingIndicator({ agentName, agentColor }: { agentName: string; agentColor: string }) {
+  return (
+    <div className="flex justify-start">
+      <div className="flex gap-2 items-end">
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+          style={{ background: agentColor }}
+        >
+          {agentName.slice(0, 2).toUpperCase()}
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">{agentName} está digitando...</div>
+          <div className="px-3 py-2 rounded-lg bg-[#1a1a2e] border border-border inline-flex gap-1.5 items-center">
+            {[0, 1, 2].map(i => (
+              <span
+                key={i}
+                className="w-2 h-2 rounded-full bg-primary"
+                style={{
+                  animation: `typingBounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TypewriterMessage({
+  content, isNew, agentName, agentColor, agentRole, model, timestamp,
+}: {
+  content: string;
+  isNew: boolean;
+  agentName: string;
+  agentColor: string;
+  agentRole: string;
+  model: string;
+  timestamp: string;
+}) {
+  const { displayed, isDone } = useTypewriter(isNew ? content : "", 15);
+  const text = isNew ? displayed : content;
+
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] flex gap-2">
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-5"
+          style={{ background: agentColor }}
+        >
+          {agentName.slice(0, 2).toUpperCase()}
+        </div>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-medium text-foreground">{agentName}</span>
+            <span className="text-[10px] text-muted-foreground">{agentRole}</span>
+          </div>
+          <div className="px-3 py-2 rounded-lg bg-[#1a1a2e] border border-border text-sm text-foreground whitespace-pre-wrap">
+            {text}
+            {isNew && !isDone && (
+              <span className="inline-block w-[2px] h-4 bg-primary animate-pulse ml-0.5 align-middle" />
+            )}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+            {timestamp}
+            <span className="px-1.5 py-0.5 rounded text-[9px]"
+              style={{ background: "rgba(99,102,241,0.2)", color: "#94a3b8" }}>
+              {model}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPanel({ agents, messages, workspaceId, selectedAgentId, onSelectAgent }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [typingAgent, setTypingAgent] = useState<string | null>(null);
-  const [streamedText, setStreamedText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [typewriterMsg, setTypewriterMsg] = useState<{ content: string; agent: Agent } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const displayedIds = useRef<Set<string>>(new Set());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeAgent = agents.find(a => a.id === selectedAgentId);
   const isBroadcast = !selectedAgentId;
@@ -36,10 +142,8 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
   });
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [filteredMessages.length, streamedText]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [filteredMessages.length, isTyping, typewriterMsg]);
 
   const handleSend = async () => {
     if (!input.trim() || sending) return;
@@ -48,7 +152,6 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
     setSending(true);
 
     if (isBroadcast) {
-      // Save broadcast message
       await supabase.from("messages").insert({
         workspace_id: workspaceId, content: text, type: "broadcast",
       });
@@ -61,7 +164,7 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
       return;
     }
 
-    setTypingAgent(selectedAgentId);
+    setIsTyping(true);
 
     try {
       const history = filteredMessages.slice(-20).map(m => ({
@@ -74,22 +177,29 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
       });
 
       if (res.error) {
-        toast({ title: "Erro", description: res.error.message, variant: "destructive" });
-      } else if (res.data?.content) {
-        // Typewriter effect
-        const fullText = res.data.content;
-        setStreamedText("");
-        for (let i = 0; i <= fullText.length; i++) {
-          await new Promise(r => setTimeout(r, 15));
-          setStreamedText(fullText.slice(0, i));
+        // Reset agent status on error
+        await supabase.from("agents").update({ status: "idle" }).eq("id", selectedAgentId);
+
+        if (res.error.message?.includes("402") || res.error.message?.includes("créditos")) {
+          toast({ title: "Créditos insuficientes", description: "Recarregue seus créditos para continuar.", variant: "destructive" });
+        } else {
+          toast({ title: "Erro", description: res.error.message, variant: "destructive" });
         }
-        setStreamedText("");
+      } else if (res.data?.content) {
+        setIsTyping(false);
+        setTypewriterMsg({ content: res.data.content, agent: activeAgent });
+        // Typewriter will show, then clear after it finishes
+        // The real message will appear via realtime subscription
       }
     } catch (err: any) {
+      // Reset agent on error
+      await supabase.from("agents").update({ status: "idle" }).eq("id", selectedAgentId);
       toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
     } finally {
-      setTypingAgent(null);
+      setIsTyping(false);
       setSending(false);
+      // Clear typewriter after delay to let realtime message appear
+      setTimeout(() => setTypewriterMsg(null), 2000);
     }
   };
 
@@ -114,6 +224,14 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
 
   return (
     <div className="flex flex-col h-full">
+      {/* Typing bounce keyframes */}
+      <style>{`
+        @keyframes typingBounce {
+          0%, 60%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-6px); }
+        }
+      `}</style>
+
       {/* Agent selector */}
       <div className="p-3 border-b border-border">
         <select
@@ -130,7 +248,7 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-        {filteredMessages.length === 0 && !streamedText && (
+        {filteredMessages.length === 0 && !isTyping && !typewriterMsg && (
           <div className="text-center text-muted-foreground text-sm mt-8">
             Nenhuma mensagem ainda. Comece a conversa!
           </div>
@@ -148,35 +266,33 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
             );
           }
 
+          // Check if this is a new message for typewriter
+          const isNew = !displayedIds.current.has(msg.id);
+          if (isNew) displayedIds.current.add(msg.id);
+
+          if (!isUser && agent) {
+            return (
+              <TypewriterMessage
+                key={msg.id}
+                content={msg.content}
+                isNew={isNew}
+                agentName={agent.name}
+                agentColor={agent.avatar_color || "#6366f1"}
+                agentRole={agent.role}
+                model={agent.model || "ai"}
+                timestamp={formatTime(msg.created_at)}
+              />
+            );
+          }
+
           return (
             <div key={msg.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] ${isUser ? "" : "flex gap-2"}`}>
-                {!isUser && agent && (
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-5"
-                    style={{ background: agent.avatar_color || "#6366f1" }}>
-                    {agent.name.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  {!isUser && agent && (
-                    <div className="text-xs text-muted-foreground mb-1">{agent.name} · {agent.role}</div>
-                  )}
-                  <div className={`px-3 py-2 rounded-lg text-sm ${
-                    isUser
-                      ? "bg-gradient-to-r from-[#3b82f6] to-[#6366f1] text-white"
-                      : "bg-[#1a1a2e] border border-border text-foreground"
-                  }`}>
-                    {msg.content}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                    {formatTime(msg.created_at)}
-                    {!isUser && agent && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px]"
-                        style={{ background: "rgba(99,102,241,0.2)", color: "#94a3b8" }}>
-                        {agent.model}
-                      </span>
-                    )}
-                  </div>
+              <div className="max-w-[85%]">
+                <div className="px-3 py-2 rounded-lg text-sm bg-gradient-to-r from-[#3b82f6] to-[#6366f1] text-white">
+                  {msg.content}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5 text-right">
+                  {formatTime(msg.created_at)}
                 </div>
               </div>
             </div>
@@ -184,35 +300,24 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
         })}
 
         {/* Typing indicator */}
-        {typingAgent && !streamedText && (
-          <div className="flex justify-start">
-            <div className="flex gap-2 items-end">
-              <div className="px-3 py-2 rounded-lg bg-[#1a1a2e] border border-border text-sm text-muted-foreground">
-                <span className="animate-pulse">
-                  {agentById(typingAgent)?.name} está digitando...
-                </span>
-              </div>
-            </div>
-          </div>
+        {isTyping && activeAgent && (
+          <TypingIndicator agentName={activeAgent.name} agentColor={activeAgent.avatar_color || "#6366f1"} />
         )}
 
-        {/* Streaming text */}
-        {streamedText && activeAgent && (
-          <div className="flex justify-start">
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-5"
-                style={{ background: activeAgent.avatar_color || "#6366f1" }}>
-                {activeAgent.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">{activeAgent.name}</div>
-                <div className="px-3 py-2 rounded-lg bg-[#1a1a2e] border border-border text-sm text-foreground">
-                  {streamedText}<span className="animate-pulse">▌</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Typewriter for streamed response */}
+        {typewriterMsg && (
+          <TypewriterMessage
+            content={typewriterMsg.content}
+            isNew={true}
+            agentName={typewriterMsg.agent.name}
+            agentColor={typewriterMsg.agent.avatar_color || "#6366f1"}
+            agentRole={typewriterMsg.agent.role}
+            model={typewriterMsg.agent.model || "ai"}
+            timestamp={new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          />
         )}
+
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
@@ -234,7 +339,7 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
           <button
             onClick={handleSend}
             disabled={!input.trim() || sending}
-            className="p-2 rounded-lg flex items-center justify-center transition-opacity"
+            className="p-2 rounded-lg flex items-center justify-center transition-all active:scale-95"
             style={{
               background: input.trim() ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "transparent",
               opacity: input.trim() ? 1 : 0.5,
