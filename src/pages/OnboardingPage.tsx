@@ -57,6 +57,18 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
+      // Guard: if workspace already exists, skip creation
+      const { data: existing } = await supabase
+        .from("workspaces")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        navigate("/office", { replace: true });
+        return;
+      }
+
       // 1. Create workspace
       const { data: ws, error: wsErr } = await supabase
         .from("workspaces")
