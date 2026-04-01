@@ -30,6 +30,7 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const { workspace } = useWorkspace();
   const { credits } = useRealtimeCredits(workspace?.id);
+  const { isAdmin } = useAdmin();
   const balance = credits?.balance || 0;
   const [collapsed, setCollapsed] = useState(false);
 
