@@ -34,7 +34,7 @@ const PRIORITIES = ["all", "urgent", "high", "medium", "low"] as const;
 const DATE_FILTERS = ["all", "today", "week", "overdue"] as const;
 
 export default function TasksPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
   const { agents } = useRealtimeAgents(workspace?.id);
   const { tasks, loading } = useRealtimeTasks(workspace?.id);
 
