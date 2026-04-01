@@ -22,7 +22,16 @@ const SECTIONS = [
 const CEO_INTERVALS = [5, 10, 15, 30, 60];
 
 export default function SettingsPage() {
-  const { workspace, refetch } = useWorkspace();
+  const { workspace, refetch, loading: wsLoading } = useWorkspace();
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-2xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
   const { user, signOut } = useAuth();
   const [section, setSection] = useState("workspace");
 

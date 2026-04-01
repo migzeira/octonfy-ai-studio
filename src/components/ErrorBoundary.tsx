@@ -35,15 +35,23 @@ export class ErrorBoundary extends Component<Props, State> {
             <h2 className="text-lg font-semibold text-foreground mb-2">
               Algo deu errado nesta seção
             </h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Ocorreu um erro inesperado. Tente recarregar a página.
+            <p className="text-sm text-muted-foreground mb-4">
+              {this.state.error?.message || "Ocorreu um erro inesperado."}
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 rounded-lg gradient-cta text-white font-medium text-sm hover:brightness-110 transition-all"
-            >
-              Recarregar
-            </button>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => this.setState({ hasError: false, error: undefined })}
+                className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-all"
+              >
+                Tentar novamente
+              </button>
+              <button
+                onClick={() => window.location.href = "/dashboard"}
+                className="px-4 py-2 rounded-lg gradient-cta text-white font-medium text-sm hover:brightness-110 transition-all"
+              >
+                Ir ao Dashboard
+              </button>
+            </div>
           </div>
         </div>
       );

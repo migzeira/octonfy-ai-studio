@@ -19,7 +19,11 @@ export function useRealtimeDocuments(workspaceId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
     const fetchDocs = async () => {
       const { data } = await supabase.from("documents").select("*").eq("workspace_id", workspaceId).order("updated_at", { ascending: false });
       if (data) setDocuments(data as Document[]);

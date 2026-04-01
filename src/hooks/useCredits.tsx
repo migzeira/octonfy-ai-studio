@@ -8,7 +8,10 @@ export function useCredits() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspace) return;
+    if (!workspace) {
+      setLoading(false);
+      return;
+    }
     const fetch = async () => {
       const { data } = await supabase
         .from("credits")

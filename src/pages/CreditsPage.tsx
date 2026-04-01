@@ -48,7 +48,16 @@ function timeAgo(d: string | null) {
 }
 
 export default function CreditsPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    );
+  }
   const { credits, loading: creditsLoading } = useRealtimeCredits(workspace?.id);
   const { agents } = useRealtimeAgents(workspace?.id);
 

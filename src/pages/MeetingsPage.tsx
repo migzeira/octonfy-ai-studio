@@ -19,7 +19,16 @@ const STATUS_INFO: Record<string, { label: string; color: string }> = {
 const FILTERS = ["all", "scheduled", "in_progress", "completed"];
 
 export default function MeetingsPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+      </div>
+    );
+  }
   const { agents } = useRealtimeAgents(workspace?.id);
   const { meetings, loading } = useRealtimeMeetings(workspace?.id);
   const navigate = useNavigate();

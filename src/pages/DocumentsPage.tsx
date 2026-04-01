@@ -24,7 +24,18 @@ const TYPES = ["all", "document", "report", "meeting_summary", "branding"];
 const AUTHORS = ["all", "user", "ai"];
 
 export default function DocumentsPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
   const { documents, loading } = useRealtimeDocuments(workspace?.id);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");

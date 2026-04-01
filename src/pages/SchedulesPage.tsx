@@ -35,7 +35,16 @@ const SUGGESTIONS = [
 ];
 
 export default function SchedulesPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, loading: wsLoading } = useWorkspace();
+
+  if (wsLoading || !workspace) {
+    return (
+      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+        <Skeleton className="h-12 w-64" />
+        <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+      </div>
+    );
+  }
   const { agents } = useRealtimeAgents(workspace?.id);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
