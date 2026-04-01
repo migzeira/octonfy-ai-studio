@@ -8,33 +8,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Check, Loader2 } from "lucide-react";
-...
+
+const STEP_TITLES = [
+  "Como se chama sua empresa?",
+  "Qual é a missão da sua empresa?",
+  "O que você vende ou oferece?",
+  "Como é a cultura da sua empresa?",
+  "Contrate seu primeiro agente",
+];
+
+const STEP_SUBTITLES = [
+  "Esse será o nome do seu escritório de IA.",
+  "Descreva os objetivos e propósitos principais.",
+  "Liste seus produtos ou serviços principais.",
+  "Valores, tom de voz e jeito de trabalhar.",
+  "Sugerimos começar com um CEO para coordenar seu time.",
+];
+
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { refetch: refetchWorkspace } = useWorkspace();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-...
+
+  const [companyName, setCompanyName] = useState("");
+  const [mission, setMission] = useState("");
+  const [products, setProducts] = useState("");
+  const [culture, setCulture] = useState("");
+
+  const [agentName, setAgentName] = useState("CEO");
+  const [agentRole, setAgentRole] = useState("Chief Executive Officer");
+  const [agentSpecialty, setAgentSpecialty] = useState("Gestão estratégica e coordenação de equipes");
+  const [agentModel, setAgentModel] = useState("claude-sonnet");
+  const [agentColor, setAgentColor] = useState("#6366f1");
+  const [agentPrompt, setAgentPrompt] = useState("");
+
+  const getDefaultPrompt = (name: string) =>
+    `Você é o CEO da empresa ${name || "[nome]"}. Sua função é coordenar a equipe, delegar tarefas, conduzir reuniões e garantir que os objetivos da empresa sejam alcançados. Tome decisões estratégicas, motive a equipe e mantenha o foco nos resultados.`;
+
+  const canContinue = () => {
+    if (step === 0) return companyName.trim().length > 0;
+    if (step === 4) return agentName.trim().length > 0 && agentRole.trim().length > 0;
+    return true;
+  };
+
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
 
     try {
-      // Guard: if workspace already exists, skip creation
       const { data: existing } = await supabase
         .from("workspaces")
         .select("id")
         .eq("user_id", user.id)
         .limit(1)
         .maybeSingle();
+
       if (existing) {
         await refetchWorkspace();
         navigate("/office", { replace: true });
         return;
       }
 
-      // 1. Create workspace
       const { data: ws, error: wsErr } = await supabase
         .from("workspaces")
         .insert({ user_id: user.id, name: companyName, mission, products, culture })
@@ -43,10 +79,8 @@ export default function OnboardingPage() {
 
       if (wsErr || !ws) throw wsErr;
 
-      // 2. Create credits
       await supabase.from("credits").insert({ workspace_id: ws.id, balance: 500 });
 
-      // 3. Create CEO agent
       const prompt = agentPrompt || getDefaultPrompt(companyName);
       await supabase.from("agents").insert({
         workspace_id: ws.id,
@@ -58,7 +92,6 @@ export default function OnboardingPage() {
         system_prompt: prompt,
       });
 
-      // 4. Log event
       await supabase.from("event_logs").insert({
         workspace_id: ws.id,
         event_type: "hired",
@@ -78,12 +111,11 @@ export default function OnboardingPage() {
 
   const handleNext = () => {
     if (step < 4) setStep(step + 1);
-    else handleFinish();
+    else void handleFinish();
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      {/* Progress Bar */}
       <div className="w-full max-w-lg mb-10">
         <div className="flex items-center justify-between">
           {[0, 1, 2, 3, 4].map((s) => (
@@ -93,8 +125,8 @@ export default function OnboardingPage() {
                   s < step
                     ? "bg-accent text-white"
                     : s === step
-                    ? "bg-primary text-white animate-pulse-slow glow-neon"
-                    : "bg-muted text-muted-foreground"
+                      ? "bg-primary text-white animate-pulse-slow glow-neon"
+                      : "bg-muted text-muted-foreground"
                 }`}
               >
                 {s < step ? <Check className="h-5 w-5" /> : s + 1}
