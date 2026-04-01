@@ -31,7 +31,10 @@ export function useRealtimeMessages(workspaceId: string | undefined) {
   };
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
     fetchMessages();
 
     const channel = supabase

@@ -14,7 +14,10 @@ export function useRealtimeCredits(workspaceId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
 
     const fetch = async () => {
       const { data } = await supabase

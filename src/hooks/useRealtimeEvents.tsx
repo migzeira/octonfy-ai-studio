@@ -17,7 +17,10 @@ export function useRealtimeEvents(workspaceId: string | undefined, limit = 20) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
 
     const fetch = async () => {
       const { data } = await supabase
