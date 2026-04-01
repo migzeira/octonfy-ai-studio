@@ -64,14 +64,6 @@ export default function CreditsPage() {
   const [modelChart, setModelChart] = useState<any[]>([]);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
 
-  if (wsLoading || !workspace) {
-    return (
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-40 w-full rounded-xl" />
-      </div>
-    );
-  }
 
   const fetchTransactions = async () => {
     if (!workspace) return;
