@@ -57,13 +57,6 @@ export default function AgentsPage() {
     );
   }
 
-  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
-  const [modelFilter, setModelFilter] = useState("");
-  const [search, setSearch] = useState("");
-  const [hireOpen, setHireOpen] = useState(false);
-  const [editAgent, setEditAgent] = useState<Agent | null>(null);
-  const [fireAgent, setFireAgent] = useState<Agent | null>(null);
-
   const filtered = agents.filter((a) => {
     if (filter === "active" && !a.is_active) return false;
     if (filter === "inactive" && a.is_active) return false;
