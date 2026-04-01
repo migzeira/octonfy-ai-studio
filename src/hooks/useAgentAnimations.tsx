@@ -41,11 +41,10 @@ export function useAgentAnimations(
 
       // Find all groups, look for the one containing the agent's body circle
       let agentGroup: Konva.Group | null = null;
-      const allGroups = layer.find("Group");
-      for (const g of allGroups) {
-        const group = g as Konva.Group;
+      const allGroups = layer.find("Group").slice() as Konva.Group[];
+      for (const group of allGroups) {
         // Check if this group has an onClick handler and children matching agent pattern
-        const children = group.getChildren();
+        const children = group.getChildren().slice() as Konva.Node[];
         if (children.length > 0) {
           // Look for the character group: has Circle (body), Text (initials), Ellipse (shadow)
           const hasCircleBody = children.some(c => c instanceof Konva.Circle && (c as Konva.Circle).radius() === 28);
@@ -76,7 +75,7 @@ export function useAgentAnimations(
       const newSet: AnimationSet = { animations: [], tweens: [], nodes: [] };
 
       // Find status dot (small circle at top-right)
-      const statusDot = agentGroup.getChildren().find(
+      const statusDot = (agentGroup.getChildren().slice() as Konva.Node[]).find(
         c => c instanceof Konva.Circle && (c as Konva.Circle).radius() === 6
       ) as Konva.Circle | undefined;
 
