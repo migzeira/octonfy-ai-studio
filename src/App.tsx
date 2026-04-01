@@ -55,7 +55,7 @@ const App = () => (
 
               {/* Private */}
               <Route path="/dashboard" element={<PrivateLayout><DashboardPage /></PrivateLayout>} />
-              <Route path="/office" element={<PrivateLayout><PlaceholderPage title="Escritório" icon={<Building2 className="h-8 w-8" />} /></PrivateLayout>} />
+              <Route path="/office" element={<PrivateLayout><OfficePage /></PrivateLayout>} />
               <Route path="/agents" element={<PrivateLayout><AgentsPage /></PrivateLayout>} />
               <Route path="/tasks" element={<PrivateLayout><PlaceholderPage title="Tarefas" icon={<CheckSquare className="h-8 w-8" />} /></PrivateLayout>} />
               <Route path="/documents" element={<PrivateLayout><PlaceholderPage title="Documentos" icon={<FileText className="h-8 w-8" />} /></PrivateLayout>} />
