@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureWorkspaceForUser } from "@/lib/ensureWorkspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,18 +19,22 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) throw signInError;
+      if (!data.user) throw new Error("Não foi possível iniciar a sessão.");
+
+      await ensureWorkspaceForUser(data.user);
+      navigate("/dashboard", { replace: true });
+    } catch (err: any) {
+      setError(err?.message || "Não foi possível entrar.");
       setLoading(false);
       return;
     }
-    // Check workspace
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: ws } = await supabase.from("workspaces").select("id").eq("user_id", user.id).maybeSingle();
-      navigate(ws ? "/dashboard" : "/onboarding", { replace: true });
-    }
+
+    setLoading(false);
   };
 
   return (
