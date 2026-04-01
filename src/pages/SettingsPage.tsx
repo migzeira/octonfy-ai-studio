@@ -24,6 +24,50 @@ const CEO_INTERVALS = [5, 10, 15, 30, 60];
 
 export default function SettingsPage() {
   const { workspace, refetch, loading: wsLoading } = useWorkspace();
+  const { user, signOut } = useAuth();
+  const [section, setSection] = useState("workspace");
+  const [name, setName] = useState("");
+  const [mission, setMission] = useState("");
+  const [products, setProducts] = useState("");
+  const [culture, setCulture] = useState("");
+  const [notes, setNotes] = useState("");
+  const [savingWs, setSavingWs] = useState(false);
+  const [ceoInterval, setCeoInterval] = useState(10);
+  const [defaultMode, setDefaultMode] = useState<"silent" | "autonomous">("silent");
+  const [notifCreditLow, setNotifCreditLow] = useState(true);
+  const [notifCreditThreshold, setNotifCreditThreshold] = useState(100);
+  const [notifAgentTask, setNotifAgentTask] = useState(true);
+  const [notifDailySummary, setNotifDailySummary] = useState(false);
+  const [notifSchedule, setNotifSchedule] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  useEffect(() => {
+    if (workspace) {
+      setName(workspace.name); setMission(workspace.mission || "");
+      setProducts(workspace.products || ""); setCulture(workspace.culture || "");
+      setNotes(workspace.additional_notes || "");
+      try {
+        const parsed = JSON.parse(workspace.additional_notes || "{}");
+        if (parsed.ceo_interval) setCeoInterval(parsed.ceo_interval);
+        if (parsed.default_mode) setDefaultMode(parsed.default_mode);
+      } catch {}
+    }
+    const stored = localStorage.getItem("octonfy-notifications");
+    if (stored) {
+      try {
+        const p = JSON.parse(stored);
+        setNotifCreditLow(p.creditLow ?? true);
+        setNotifCreditThreshold(p.creditThreshold ?? 100);
+        setNotifAgentTask(p.agentTask ?? true);
+        setNotifDailySummary(p.dailySummary ?? false);
+        setNotifSchedule(p.schedule ?? true);
+      } catch {}
+    }
+  }, [workspace]);
 
   if (wsLoading || !workspace) {
     return (
@@ -33,34 +77,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-  const { user, signOut } = useAuth();
-  const [section, setSection] = useState("workspace");
-
-  // Workspace fields
-  const [name, setName] = useState("");
-  const [mission, setMission] = useState("");
-  const [products, setProducts] = useState("");
-  const [culture, setCulture] = useState("");
-  const [notes, setNotes] = useState("");
-  const [savingWs, setSavingWs] = useState(false);
-
-  // Office
-  const [ceoInterval, setCeoInterval] = useState(10);
-  const [defaultMode, setDefaultMode] = useState<"silent" | "autonomous">("silent");
-
-  // Notifications
-  const [notifCreditLow, setNotifCreditLow] = useState(true);
-  const [notifCreditThreshold, setNotifCreditThreshold] = useState(100);
-  const [notifAgentTask, setNotifAgentTask] = useState(true);
-  const [notifDailySummary, setNotifDailySummary] = useState(false);
-  const [notifSchedule, setNotifSchedule] = useState(true);
-
-  // Account
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (workspace) {
