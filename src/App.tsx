@@ -12,6 +12,9 @@ import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import OnboardingPage from "@/pages/OnboardingPage";
+import DashboardPage from "@/pages/DashboardPage";
+import AgentsPage from "@/pages/AgentsPage";
+import CreditsPage from "@/pages/CreditsPage";
 import NotFound from "@/pages/NotFound";
 
 import {
