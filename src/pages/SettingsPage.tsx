@@ -77,32 +77,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (workspace) {
-      setName(workspace.name); setMission(workspace.mission || "");
-      setProducts(workspace.products || ""); setCulture(workspace.culture || "");
-      setNotes(workspace.additional_notes || "");
-      try {
-        const parsed = JSON.parse(workspace.additional_notes || "{}");
-        if (parsed.ceo_interval) setCeoInterval(parsed.ceo_interval);
-        if (parsed.default_mode) setDefaultMode(parsed.default_mode);
-      } catch {}
-    }
-    // Load notifications from localStorage
-    const stored = localStorage.getItem("octonfy-notifications");
-    if (stored) {
-      try {
-        const p = JSON.parse(stored);
-        setNotifCreditLow(p.creditLow ?? true);
-        setNotifCreditThreshold(p.creditThreshold ?? 100);
-        setNotifAgentTask(p.agentTask ?? true);
-        setNotifDailySummary(p.dailySummary ?? false);
-        setNotifSchedule(p.schedule ?? true);
-      } catch {}
-    }
-  }, [workspace]);
-
   const saveWorkspace = async () => {
     if (!workspace) return;
     setSavingWs(true);
