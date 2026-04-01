@@ -2,56 +2,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Check, Loader2 } from "lucide-react";
-
-const STEP_TITLES = [
-  "Como se chama sua empresa?",
-  "Qual é a missão da sua empresa?",
-  "O que você vende ou oferece?",
-  "Como é a cultura da sua empresa?",
-  "Contrate seu primeiro agente",
-];
-
-const STEP_SUBTITLES = [
-  "Esse será o nome do seu escritório de IA.",
-  "Descreva os objetivos e propósitos principais.",
-  "Liste seus produtos ou serviços principais.",
-  "Valores, tom de voz e jeito de trabalhar.",
-  "Sugerimos começar com um CEO para coordenar seu time.",
-];
-
+...
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refetch: refetchWorkspace } = useWorkspace();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-
-  const [companyName, setCompanyName] = useState("");
-  const [mission, setMission] = useState("");
-  const [products, setProducts] = useState("");
-  const [culture, setCulture] = useState("");
-
-  const [agentName, setAgentName] = useState("CEO");
-  const [agentRole, setAgentRole] = useState("Chief Executive Officer");
-  const [agentSpecialty, setAgentSpecialty] = useState("Gestão estratégica e coordenação de equipes");
-  const [agentModel, setAgentModel] = useState("claude-sonnet");
-  const [agentColor, setAgentColor] = useState("#6366f1");
-  const [agentPrompt, setAgentPrompt] = useState("");
-
-  // Set default prompt when company name changes
-  const getDefaultPrompt = (name: string) =>
-    `Você é o CEO da empresa ${name || "[nome]"}. Sua função é coordenar a equipe, delegar tarefas, conduzir reuniões e garantir que os objetivos da empresa sejam alcançados. Tome decisões estratégicas, motive a equipe e mantenha o foco nos resultados.`;
-
-  const canContinue = () => {
-    if (step === 0) return companyName.trim().length > 0;
-    if (step === 4) return agentName.trim().length > 0 && agentRole.trim().length > 0;
-    return true;
-  };
-
+...
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
@@ -65,6 +29,7 @@ export default function OnboardingPage() {
         .limit(1)
         .maybeSingle();
       if (existing) {
+        await refetchWorkspace();
         navigate("/office", { replace: true });
         return;
       }
@@ -102,6 +67,7 @@ export default function OnboardingPage() {
         target: agentName,
       });
 
+      await refetchWorkspace();
       navigate("/office", { replace: true });
     } catch (err: any) {
       console.error(err);

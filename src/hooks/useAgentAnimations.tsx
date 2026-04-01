@@ -232,7 +232,7 @@ export function useAgentAnimations(
 
       if (status === "in_meeting") {
         // Just set stroke to green — no animations needed
-        const body = agentGroup.getChildren().find(
+        const body = (agentGroup.getChildren().slice() as Konva.Node[]).find(
           c => c instanceof Konva.Circle && (c as Konva.Circle).radius() === 28
         ) as Konva.Circle | undefined;
         if (body) {
@@ -269,7 +269,7 @@ export function useAgentAnimations(
       }
 
       if (status === "offline" || !agent.is_active) {
-        const body = agentGroup.getChildren().find(
+        const body = (agentGroup.getChildren().slice() as Konva.Node[]).find(
           c => c instanceof Konva.Circle && (c as Konva.Circle).radius() === 28
         ) as Konva.Circle | undefined;
         if (body) {
