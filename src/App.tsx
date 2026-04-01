@@ -17,6 +17,7 @@ import AgentsPage from "@/pages/AgentsPage";
 import CreditsPage from "@/pages/CreditsPage";
 import NotFound from "@/pages/NotFound";
 
+import OfficePage from "@/pages/OfficePage";
 import {
   LayoutDashboard, Building2, Users, CheckSquare, FileText,
   Video, Clock, Plug, Coins, Activity, Settings,
