@@ -148,48 +148,6 @@ const INTEGRATIONS_DEF: IntegrationDef[] = [
       "Cole no campo abaixo e salve",
     ],
   },
-  {
-    type: "google_calendar", name: "Google Calendar", icon: Calendar, color: "#4285F4",
-    desc: "Agentes criam e visualizam eventos do seu calendário",
-    status: "coming_soon",
-    fields: [],
-    steps: ["Integração OAuth em breve — conecte sua conta Google com um clique"],
-  },
-  {
-    type: "google_sheets", name: "Google Sheets", icon: Table, color: "#0F9D58",
-    desc: "Agentes leem e escrevem dados em planilhas",
-    status: "coming_soon",
-    fields: [],
-    steps: ["Integração OAuth em breve — conecte sua conta Google com um clique"],
-  },
-  {
-    type: "google_drive", name: "Google Drive", icon: HardDrive, color: "#4285F4",
-    desc: "Agentes salvam e acessam documentos no Drive",
-    status: "coming_soon",
-    fields: [],
-    steps: ["Integração OAuth em breve — conecte sua conta Google com um clique"],
-  },
-  {
-    type: "instagram", name: "Instagram", icon: Instagram, color: "#E1306C",
-    desc: "Agentes criam e agendam posts no Instagram",
-    status: "coming_soon",
-    fields: [],
-    steps: ["Integração com Meta API em breve"],
-  },
-  {
-    type: "stripe", name: "Stripe", icon: CreditCard, color: "#635bff",
-    desc: "Processe pagamentos reais de créditos",
-    status: "coming_soon",
-    fields: [],
-    steps: ["Integração de pagamentos em breve"],
-  },
-  {
-    type: "zapier", name: "Zapier", icon: Zap, color: "#FF4A00",
-    desc: "Conecte com mais de 5.000 aplicativos via Zapier",
-    status: "coming_soon",
-    fields: [],
-    steps: ["Integração Zapier em breve"],
-  },
 ];
 
 export default function IntegrationsPage() {
