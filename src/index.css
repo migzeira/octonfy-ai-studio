@@ -119,14 +119,14 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: hsl(240 20% 4%);
+    background: hsl(var(--background));
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(240 15% 15%);
+    background: hsl(var(--border));
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(240 15% 22%);
+    background: hsl(var(--muted-foreground));
   }
 
   /* Text selection */
