@@ -326,9 +326,9 @@ export const DEFAULT_OFFICE_LAYOUT: PlacedItem[] = [
 ];
 
 // ── HOOK ─────────────────────────────────────────────────────────────
-// localStorage key v2: fresh start with DEFAULT_OFFICE_LAYOUT for all workspaces
+// localStorage key v3: force refresh with Miguel's default layout for all workspaces
 export function useFurnitureEditor(workspaceId: string) {
-  const itemsKey      = `octonfy-office-v2-${workspaceId}`;
+  const itemsKey      = `octonfy-office-v3-${workspaceId}`;
   const themeKey      = `octonfy-floor-${workspaceId}`;
   const floorColorKey = `octonfy-floor-colors-${workspaceId}`;
 
