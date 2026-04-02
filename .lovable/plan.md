@@ -1,71 +1,37 @@
 
 
-# Varredura da aba Configurações + Correção de Build Errors
+# Corrigir e Completar a Aba Logs
 
-## Bugs e problemas encontrados
+## Problemas encontrados
 
-### 1. Build errors críticos (app não compila)
+### Bugs funcionais
+1. **Filtro de tipo quebrado** — o pill "Mensagens" tem key `"dm_sent,broadcast_sent"` como string única, mas o filtro faz `event_type.includes("dm_sent,broadcast_sent")` que nunca dá match. Precisa splittar por vírgula.
+2. **Filtragem client-side causa paginação errada** — type filters são aplicados DEPOIS do fetch, então a contagem de `hasMore` e o offset de `loadMore` ficam incorretos (ex: busca 30 do banco, filtra 5, mostra 5 mas diz "carregar mais" baseado nos 30 originais).
+3. **Sem realtime** — a página não escuta novos eventos em tempo real. O hook `useRealtimeEvents` existe mas não é usado aqui.
+4. **Sem debounce na busca** — cada letra digitada dispara uma query no banco.
+5. **Import não usado** — `useRealtimeAgents` é importado mas `agents` nunca é utilizado.
+6. **CSV mal escapado** — campos com vírgulas ou aspas quebram o arquivo.
 
-**`src/hooks/useAgentAnimations.tsx` linha 4**: Importa `getDeskPos` e `getMeetingChairPos` de `OfficeCanvas`, mas essas funções não existem mais (foram removidas na reescrita do canvas). O hook inteiro usa `Konva` que também foi removido do canvas.
-
-**`src/components/office/OfficeCanvas.tsx` linha 1159**: Comparação TypeScript impossível — `st` já foi narrowed para `"working" | "thinking"` mas depois compara com `"in_meeting"`, que o TS rejeita.
-
-**Correção**: 
-- Reescrever `useAgentAnimations.tsx` como um hook leve (sem Konva, sem referências ao canvas antigo) que apenas calcula posições/estados para o novo canvas
-- Corrigir a lógica de comparação na linha 1159
-
-### 2. Conflito Workspace notes vs Office settings
-
-A seção "Escritório" salva `ceo_interval` e `default_mode` dentro de `additional_notes` como JSON. Mas a seção "Workspace" mostra `additional_notes` como texto livre editável. Se o usuário digita texto na seção Workspace e salva, **sobrescreve** as configurações do escritório. E vice-versa.
-
-**Correção**: Separar — a seção Workspace NÃO deve editar `additional_notes` diretamente. Guardar settings do escritório em um campo separado ou em prefixo JSON protegido.
-
-### 3. Cancelar conta não funciona
-
-O botão "Excluir conta" apenas mostra um toast "Funcionalidade em desenvolvimento". Precisa implementar ou remover.
-
-### 4. Notificações salvas apenas em localStorage
-
-Não persiste entre dispositivos. Funciona, mas é limitado.
-
-### 5. Plano mostra "Starter" hardcoded
-
-O card de plano diz "500 créditos iniciais inclusos" fixo, sem consultar o saldo real.
-
----
-
-## Ideias para completar a aba
-
-1. **Seção "Aparência"** — tema claro/escuro, tamanho de fonte do chat
-2. **Exportar/Importar dados** — baixar workspace completo (agentes, docs, tasks) como JSON
-3. **Gerenciar API Keys** — ver/editar chaves das integrações conectadas direto nas settings
-4. **Idioma** — seletor PT-BR / EN / ES
-5. **Logout visível** — botão de sair na seção Conta (hoje só existe no sidebar)
-6. **Histórico de atividade** — últimas ações no workspace (já tem `event_logs`)
-
----
+### Funcionalidades faltando
+- **Stats resumo** no topo (total de eventos, por tipo mais frequente)
+- **Botão limpar filtros** quando filtros estão ativos
+- **Indicador de carregamento** no "carregar mais"
 
 ## Plano de implementação
 
-### Passo 1 — Corrigir build errors
-- **`useAgentAnimations.tsx`**: Reescrever como stub simples (export vazio ou hook que retorna estado mínimo) já que o novo `OfficeCanvas.tsx` não o usa
-- **`OfficeCanvas.tsx` linha 1159**: Simplificar condição para `const isWorking = (st === "working" || st === "thinking") && !meets.includes(id);`
+### Arquivo: `src/pages/LogsPage.tsx` (reescrever)
 
-### Passo 2 — Corrigir conflito additional_notes
-- Na seção "Workspace", remover o campo `additional_notes` do formulário visual (ou torná-lo read-only)
-- Na seção "Escritório", continuar salvando JSON em `additional_notes` mas de forma isolada
-
-### Passo 3 — Polir seção Conta
-- Mostrar saldo real de créditos (consultar tabela `credits`)
-- Implementar exclusão de conta real (deletar workspace + signOut) ou esconder botão
-- Adicionar botão de Logout
-
-### Passo 4 — Adicionar seção Aparência
-- Nova aba com toggle tema claro/escuro (salvo em localStorage)
-- Opção de densidade da UI (compacto/confortável)
+1. **Corrigir filtro de tipo** — ao aplicar type pills, splittar keys por vírgula e checar cada parte individualmente com `some()`
+2. **Mover filtro de tipo para a query SQL** — usar `.or()` ou `.in()` no Supabase ao invés de filtrar client-side, garantindo paginação correta
+3. **Adicionar realtime** — subscribir no channel `postgres_changes` para INSERT em `event_logs` e prepend novos eventos automaticamente
+4. **Debounce na busca** — usar `setTimeout` de 400ms antes de disparar fetch
+5. **Remover import de `useRealtimeAgents`**
+6. **Stats cards** — mostrar 4 cards no topo: Total, Hoje, Tipo mais frequente, Último evento
+7. **Botão limpar filtros** — aparece quando há filtros ativos
+8. **Loading state no "carregar mais"** — spinner enquanto busca próxima página
+9. **CSV robusto** — escapar campos com aspas duplas
+10. **Resolver actor display** — quando actor é UUID de agente, mostrar nome do agente (re-adicionar `useRealtimeAgents` com propósito claro)
 
 ### Arquivos modificados
-- `src/hooks/useAgentAnimations.tsx` — reescrever como stub
-- `src/components/office/OfficeCanvas.tsx` — fix linha 1159
-- `src/pages/SettingsPage.tsx` — corrigir conflito notes, polir conta, adicionar seção aparência
+- `src/pages/LogsPage.tsx` — reescrita completa com todas as correções
 
