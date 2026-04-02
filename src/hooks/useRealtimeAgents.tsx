@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Agent {
@@ -23,6 +23,7 @@ export interface Agent {
 export function useRealtimeAgents(workspaceId: string | undefined) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelInstanceRef = useRef(Math.random().toString(36).slice(2));
 
   useEffect(() => {
     if (!workspaceId) {
@@ -42,7 +43,7 @@ export function useRealtimeAgents(workspaceId: string | undefined) {
     fetch();
 
     const channel = supabase
-      .channel(`agents-${workspaceId}`)
+      .channel(`agents-${workspaceId}-${channelInstanceRef.current}`)
       .on(
         "postgres_changes",
         {

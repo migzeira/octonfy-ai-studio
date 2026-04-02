@@ -15,15 +15,19 @@ export function useAdmin() {
     }
 
     const check = async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      setIsAdmin(!error && !!data);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        setIsAdmin(!error && !!data);
+      } catch {
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
     };
 
     check();

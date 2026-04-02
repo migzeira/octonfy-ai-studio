@@ -87,6 +87,8 @@ export default function HireAgentModal({ open, onClose }: HireAgentModalProps) {
         model,
         avatar_color: customColor || color,
         system_prompt: finalPrompt,
+        is_active: true,
+        status: "idle",
       });
       if (error) throw error;
 

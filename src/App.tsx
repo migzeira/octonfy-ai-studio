@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -17,7 +18,6 @@ import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import AgentsPage from "@/pages/AgentsPage";
 import CreditsPage from "@/pages/CreditsPage";
-import OfficePage from "@/pages/OfficePage";
 import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import MeetingsPage from "@/pages/MeetingsPage";
@@ -26,6 +26,10 @@ import IntegrationsPage from "@/pages/IntegrationsPage";
 import LogsPage from "@/pages/LogsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
+
+// Lazy-load OfficePage so that react-konva is not in the initial bundle.
+// A Konva version mismatch would otherwise crash the entire app at startup.
+const OfficePage = lazy(() => import("@/pages/OfficePage"));
 
 const queryClient = new QueryClient();
 
@@ -60,7 +64,19 @@ const App = () => (
 
                 {/* Private */}
                 <Route path="/dashboard" element={<PrivateLayout><ErrorBoundary><DashboardPage /></ErrorBoundary></PrivateLayout>} />
-                <Route path="/office" element={<PrivateLayout><ErrorBoundary><OfficePage /></ErrorBoundary></PrivateLayout>} />
+                <Route path="/office" element={
+                  <PrivateLayout>
+                    <ErrorBoundary>
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center h-full min-h-[400px]">
+                          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                        </div>
+                      }>
+                        <OfficePage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  </PrivateLayout>
+                } />
                 <Route path="/agents" element={<PrivateLayout><ErrorBoundary><AgentsPage /></ErrorBoundary></PrivateLayout>} />
                 <Route path="/tasks" element={<PrivateLayout><ErrorBoundary><TasksPage /></ErrorBoundary></PrivateLayout>} />
                 <Route path="/documents" element={<PrivateLayout><ErrorBoundary><DocumentsPage /></ErrorBoundary></PrivateLayout>} />
