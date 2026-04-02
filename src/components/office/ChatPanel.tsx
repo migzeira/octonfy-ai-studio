@@ -148,6 +148,58 @@ export default function ChatPanel({ agents, messages, workspaceId, selectedAgent
   const handleSend = async () => {
     if (!input.trim() || sending) return;
     const text = input.trim();
+
+    // ── Office command interception ────────────────────────────────────
+    // Patterns: "descanse [nome]" | "/rest [nome]" → send agent to lounge
+    //           "trabalhe [nome]" | "/work [nome]" → call agent back to desk
+    //           "reunião [nome]"  | "/meeting [nome]" → mark agent in_meeting
+    const cmdRest = text.match(
+      /^(?:\/rest|descanse?|vai\s+descansar?|manda?\s+descansar?)\s+(.+)$/i
+    );
+    const cmdWork = text.match(
+      /^(?:\/work|trabalhe?|volta(?:r)?\s+trabalhar?|chama(?:r)?\s+(?:para\s+)?trabalhar?)\s+(.+)$/i
+    );
+    const cmdMeet = text.match(
+      /^(?:\/meeting|reuni[aã]o|chama(?:r)?\s+(?:para\s+)?reuni[aã]o)\s+(.+)$/i
+    );
+
+    const cmd = cmdRest ?? cmdWork ?? cmdMeet;
+    if (cmd) {
+      const nameQuery = cmd[1].trim().toLowerCase();
+      // Match by first name or substring of full name
+      const target = agents.find(a => {
+        const n = a.name.toLowerCase();
+        return n === nameQuery || n.startsWith(nameQuery) || n.includes(nameQuery);
+      });
+      if (target) {
+        setInput("");
+        let systemMsg = "";
+        if (cmdRest) {
+          await supabase.from("agents")
+            .update({ is_active: false, status: "idle" })
+            .eq("id", target.id);
+          systemMsg = `🛋️ ${target.name} foi mandado(a) descansar.`;
+        } else if (cmdWork) {
+          await supabase.from("agents")
+            .update({ is_active: true, status: "working" })
+            .eq("id", target.id);
+          systemMsg = `💼 ${target.name} foi chamado(a) para trabalhar.`;
+        } else if (cmdMeet) {
+          await supabase.from("agents")
+            .update({ status: "in_meeting" })
+            .eq("id", target.id);
+          systemMsg = `📊 ${target.name} foi chamado(a) para a reunião.`;
+        }
+        if (systemMsg) {
+          await supabase.from("messages").insert({
+            workspace_id: workspaceId, content: systemMsg, type: "system",
+          });
+        }
+        return; // don't send to AI
+      }
+      // Agent not found — fall through to normal message
+    }
+
     setInput("");
     setSending(true);
 

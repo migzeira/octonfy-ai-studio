@@ -803,6 +803,8 @@ interface Char {
   isActive: boolean; inMeeting: boolean; isOffline: boolean;
   seatIdx: number; typingChar: string; typingAlpha: number;
   atLounge: boolean;
+  assignedCol: number | null;
+  assignedRow: number | null;
 }
 
 function tc(col: number, row: number) {
@@ -819,6 +821,7 @@ function createChar(id: string, seatIdx: number): Char {
     wanderTimer: 2 + Math.random() * 5, wanderCount: 0,
     isActive: true, inMeeting: false, isOffline: false,
     seatIdx, typingChar: "{}", typingAlpha: 0, atLounge: false,
+    assignedCol: null, assignedRow: null,
   };
 }
 
@@ -829,7 +832,13 @@ function startWalk(ch: Char, tc2: number, tr: number, map: number[][]): void {
 }
 
 function updateChar(ch: Char, dt: number, map: number[][], walkable: Array<{ col: number; row: number }>): void {
-  const ds = DESK_SEATS[ch.seatIdx % DESK_SEATS.length];
+  const _ds = DESK_SEATS[ch.seatIdx % DESK_SEATS.length];
+  // Use the agent's personally assigned desk if set (position_x / position_y stored as tile coords)
+  const ds = {
+    col: ch.assignedCol ?? _ds.col,
+    row: ch.assignedRow ?? _ds.row,
+    dir: _ds.dir,
+  };
   const ms = MEETING_SEATS[ch.seatIdx % MEETING_SEATS.length];
   const ls = LOUNGE_SEATS[ch.seatIdx % LOUNGE_SEATS.length];
   ch.frameTimer += dt;
@@ -1015,9 +1024,11 @@ interface OfficeCanvasProps {
   onTileClick?:        (col: number, row: number) => void;
   onPlacedItemClick?:  (item: PlacedItem, screenX: number, screenY: number) => void;
   floorTheme?:         FloorTheme;
-  movingItemId?:       string | null;
-  onMoveItem?:         (id: string, col: number, row: number) => void;
-  customFloorColors?:  { work: string | null; meet: string | null; break: string | null } | null;
+  movingItemId?:             string | null;
+  onMoveItem?:               (id: string, col: number, row: number) => void;
+  customFloorColors?:        { work: string | null; meet: string | null; break: string | null } | null;
+  assigningDeskForAgentId?:  string | null;
+  onAssignDesk?:             (agentId: string, col: number, row: number) => void;
 }
 
 /* ─── DYNAMIC TILE MAP (placed items block pathfinding) ───────── */
@@ -1050,41 +1061,51 @@ export default function OfficeCanvas({
   placedItems = [], editorMode = false, selectedTool = null,
   onTileClick, onPlacedItemClick, floorTheme = "warm",
   movingItemId = null, onMoveItem, customFloorColors = null,
+  assigningDeskForAgentId = null, onAssignDesk,
 }: OfficeCanvasProps) {
-  const canvasRef        = useRef<HTMLCanvasElement>(null);
-  const charsRef         = useRef<Map<string, Char>>(new Map());
-  const agentsRef        = useRef(agents);
-  const meetsRef         = useRef(meetingParticipants);
-  const selRef           = useRef(selectedAgentId);
-  const charImgsRef      = useRef<(HTMLImageElement | null)[]>([]);
-  const baseTileMapRef   = useRef(buildTileMap());
-  const dynMapRef        = useRef(baseTileMapRef.current);
-  const walkRef          = useRef(getWalkableTiles(baseTileMapRef.current));
-  const placedRef        = useRef(placedItems);
-  const editorRef        = useRef(editorMode);
-  const toolRef          = useRef(selectedTool);
-  const themeRef         = useRef(floorTheme);
-  const movingIdRef      = useRef(movingItemId);
-  const customColorsRef  = useRef(customFloorColors);
+  const canvasRef           = useRef<HTMLCanvasElement>(null);
+  const charsRef            = useRef<Map<string, Char>>(new Map());
+  const agentsRef           = useRef(agents);
+  const meetsRef            = useRef(meetingParticipants);
+  const selRef              = useRef(selectedAgentId);
+  const charImgsRef         = useRef<(HTMLImageElement | null)[]>([]);
+  const baseTileMapRef      = useRef(buildTileMap());
+  const dynMapRef           = useRef(baseTileMapRef.current);
+  const walkRef             = useRef(getWalkableTiles(baseTileMapRef.current));
+  const placedRef           = useRef(placedItems);
+  const editorRef           = useRef(editorMode);
+  const toolRef             = useRef(selectedTool);
+  const themeRef            = useRef(floorTheme);
+  const movingIdRef         = useRef(movingItemId);
+  const customColorsRef     = useRef(customFloorColors);
+  const assigningDeskRef    = useRef(assigningDeskForAgentId);
 
-  agentsRef.current     = agents;
-  meetsRef.current      = meetingParticipants;
-  selRef.current        = selectedAgentId;
-  placedRef.current     = placedItems;
-  editorRef.current     = editorMode;
-  toolRef.current       = selectedTool;
-  themeRef.current      = floorTheme;
-  movingIdRef.current   = movingItemId;
-  customColorsRef.current = customFloorColors;
+  agentsRef.current        = agents;
+  meetsRef.current         = meetingParticipants;
+  selRef.current           = selectedAgentId;
+  placedRef.current        = placedItems;
+  editorRef.current        = editorMode;
+  toolRef.current          = selectedTool;
+  themeRef.current         = floorTheme;
+  movingIdRef.current      = movingItemId;
+  customColorsRef.current  = customFloorColors;
+  assigningDeskRef.current = assigningDeskForAgentId;
 
   const [hoverTile, setHoverTile] = useState({ col: -1, row: -1 });
 
-  // Rebuild dynamic tileMap + walkable list when placed items change
+  // Rebuild dynamic tileMap + walkable list when placed items or agent desk assignments change
   useEffect(() => {
     const dyn = buildDynamicMap(baseTileMapRef.current, placedItems);
-    dynMapRef.current  = dyn;
-    walkRef.current    = getWalkableTiles(dyn);
-  }, [placedItems]);
+    // Keep each agent's assigned desk tile walkable so BFS can reach it
+    for (const a of agents) {
+      if (a.position_x != null && a.position_y != null) {
+        const c = a.position_x, r = a.position_y;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) dyn[r][c] = FLOOR;
+      }
+    }
+    dynMapRef.current = dyn;
+    walkRef.current   = getWalkableTiles(dyn);
+  }, [placedItems, agents]);
 
   // Character init/cleanup
   useEffect(() => {
@@ -1114,6 +1135,12 @@ export default function OfficeCanvas({
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const t = getCanvasTile(e); if (!t) return;
+
+    // Desk-assign mode: clicking any tile assigns that position as the agent's desk
+    if (assigningDeskRef.current && onAssignDesk) {
+      onAssignDesk(assigningDeskRef.current, t.col, t.row);
+      return;
+    }
 
     if (editorRef.current) {
       // Move mode: clicking any tile moves the dragged item there
@@ -1156,9 +1183,17 @@ export default function OfficeCanvas({
         for (const [id, ch] of charsRef.current) {
           const ag = agentsRef.current.find(a => a.id === id); if (!ag) continue;
           const st = ag.status ?? "idle";
-          ch.isActive  = (st === "working" || st === "thinking") && !meets.includes(id);
-          ch.inMeeting = meets.includes(id) || st === "in_meeting";
-          ch.isOffline = !ag.is_active || st === "offline";
+          ch.isActive     = (st === "working" || st === "thinking") && !meets.includes(id) && st !== "in_meeting";
+          ch.inMeeting    = meets.includes(id) || st === "in_meeting";
+          ch.isOffline    = !ag.is_active || st === "offline";
+          // Sync assigned desk from agent's position_x / position_y (tile coordinates)
+          if (ag.position_x != null && ag.position_y != null) {
+            ch.assignedCol = ag.position_x;
+            ch.assignedRow = ag.position_y;
+          } else {
+            ch.assignedCol = null;
+            ch.assignedRow = null;
+          }
           updateChar(ch, dt, map, walk);
         }
       },
@@ -1167,6 +1202,25 @@ export default function OfficeCanvas({
         const fc = FLOOR_THEMES[themeRef.current] ?? FLOOR_THEMES.warm;
         drawOffice(ctx, placedRef.current, fc, movingIdRef.current, hoverTile, customColorsRef.current);
         if (editorRef.current) drawEditorOverlay(ctx, hoverTile.col, hoverTile.row, !!toolRef.current || !!movingIdRef.current);
+        // CEO room label — draw above the CEO's assigned desk
+        for (const ag of agentsRef.current) {
+          if (ag.role.toLowerCase().includes("ceo") && ag.position_x != null && ag.position_y != null) {
+            const lx = ag.position_x * TILE;
+            const ly = (ag.position_y - 1) * TILE;
+            ctx.save();
+            ctx.font = "bold 10px monospace";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "bottom";
+            const label = "👑 SALA DO CEO";
+            const tw = ctx.measureText(label.replace("👑 ", "")).width + 20;
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            ctx.fillRect(lx, ly - 14, tw, 14);
+            ctx.fillStyle = "rgba(255,200,60,0.9)";
+            ctx.fillText(label, lx + 2, ly);
+            ctx.restore();
+          }
+        }
+
         const sorted = [...charsRef.current.values()].sort((a, b) => a.y - b.y);
         for (const ch of sorted) {
           const ag = agentsRef.current.find(a => a.id === ch.id); if (!ag) continue;
@@ -1198,6 +1252,7 @@ export default function OfficeCanvas({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         className={
+          assigningDeskForAgentId ? "cursor-cell" :
           movingItemId ? "cursor-grab" :
           editorMode && selectedTool ? "cursor-crosshair" :
           editorMode ? "cursor-default" : "cursor-pointer"

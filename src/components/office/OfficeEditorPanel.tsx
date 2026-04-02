@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { FURNITURE_CATALOG, FurnitureType, FloorTheme, FLOOR_THEMES, ROOM_TEMPLATES } from "@/hooks/useFurnitureEditor";
-import { X, Trash2, Layers, Palette, Building2 } from "lucide-react";
+import { X, Layers, Palette, Building2 } from "lucide-react";
 
 interface Props {
   selectedTool:    FurnitureType | null;
   onSelectTool:    (t: FurnitureType | null) => void;
-  onClearAll:      () => void;
   onClose:         () => void;
   floorTheme:      FloorTheme;
   onSetFloorTheme: (t: FloorTheme) => void;
@@ -23,7 +22,7 @@ const ZONE_LABELS = [
 ];
 
 export default function OfficeEditorPanel({
-  selectedTool, onSelectTool, onClearAll, onClose,
+  selectedTool, onSelectTool, onClose,
   floorTheme, onSetFloorTheme,
   customFloorColors, onSetZoneColor,
   onAddRoomTemplate,
@@ -210,17 +209,6 @@ export default function OfficeEditorPanel({
         </div>
       )}
 
-      {/* ── Footer ──────────────────────────────────────────────── */}
-      <div className="px-3 py-2 border-t border-white/10 flex-shrink-0">
-        <button
-          onClick={onClearAll}
-          className="w-full flex items-center justify-center gap-1.5 text-xs text-red-400/70
-                     hover:text-red-400 py-1.5 rounded-lg hover:bg-red-400/10 transition-all"
-        >
-          <Trash2 className="h-3 w-3" />
-          Restaurar padrão
-        </button>
-      </div>
     </div>
   );
 }

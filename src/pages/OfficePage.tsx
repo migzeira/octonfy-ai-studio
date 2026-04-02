@@ -75,6 +75,7 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const [agentPopup, setAgentPopup] = useState<{ agent: Agent; screenX: number; screenY: number } | null>(null);
   const [editingItem, setEditingItem] = useState<{ item: PlacedItem; screenX: number; screenY: number } | null>(null);
   const [movingItemId, setMovingItemId] = useState<string | null>(null);
+  const [assigningDeskForAgentId, setAssigningDeskForAgentId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
@@ -96,6 +97,7 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
         setAgentPopup(null);
         setMovingItemId(null);
         setEditingItem(null);
+        setAssigningDeskForAgentId(null);
         if (editorMode) toggleEditor();
       }
     };
@@ -112,6 +114,18 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const handleActivateAgent = useCallback(async (agentId: string) => {
     await supabase.from("agents").update({ is_active: true, status: "working" }).eq("id", agentId);
     setAgentPopup(null);
+  }, []);
+
+  // Enter desk-assign mode: next canvas tile click will assign this agent's desk
+  const handleStartAssignDesk = useCallback((agentId: string) => {
+    setAgentPopup(null);
+    setAssigningDeskForAgentId(agentId);
+  }, []);
+
+  // Save assigned desk tile coordinates to position_x / position_y
+  const handleAssignDesk = useCallback(async (agentId: string, col: number, row: number) => {
+    await supabase.from("agents").update({ position_x: col, position_y: row }).eq("id", agentId);
+    setAssigningDeskForAgentId(null);
   }, []);
 
   const meetingParticipants: string[] = activeMeeting?.participants || [];
@@ -215,12 +229,13 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                 movingItemId={movingItemId}
                 onMoveItem={(id, col, row) => { moveItem(id, col, row); setMovingItemId(null); }}
                 customFloorColors={customFloorColors}
+                assigningDeskForAgentId={assigningDeskForAgentId}
+                onAssignDesk={handleAssignDesk}
               />
               {editorMode && (
                 <OfficeEditorPanel
                   selectedTool={selectedTool}
                   onSelectTool={setSelectedTool}
-                  onClearAll={clearAll}
                   onClose={toggleEditor}
                   floorTheme={floorTheme}
                   onSetFloorTheme={setFloorTheme}
@@ -235,6 +250,14 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                                 bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs px-4 py-1.5
                                 rounded-full backdrop-blur-sm pointer-events-none">
                   ✋ Clique no canvas para posicionar — Esc para cancelar
+                </div>
+              )}
+              {/* Desk-assign mode hint banner */}
+              {assigningDeskForAgentId && (
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2
+                                bg-yellow-500/20 border border-yellow-400/40 text-yellow-300 text-xs px-4 py-1.5
+                                rounded-full backdrop-blur-sm pointer-events-none">
+                  🗂️ Clique na cadeira onde {agents.find(a => a.id === assigningDeskForAgentId)?.name?.split(" ")[0]} deve trabalhar — Esc para cancelar
                 </div>
               )}
 
@@ -321,6 +344,15 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                     💼 Chamar para trabalhar
                   </button>
                 )}
+                <button onClick={() => handleStartAssignDesk(agentPopup.agent.id)}
+                  className="w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg text-yellow-400 hover:bg-yellow-400/10 transition-colors text-left">
+                  🗂️ Atribuir mesa
+                  {agentPopup.agent.position_x != null && (
+                    <span className="ml-auto text-[9px] text-white/30 font-mono">
+                      {agentPopup.agent.position_x},{agentPopup.agent.position_y}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
           </>
