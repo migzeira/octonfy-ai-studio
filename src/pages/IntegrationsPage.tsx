@@ -12,7 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Calendar, Table, HardDrive, Search, Image, Camera, MessageCircle,
+  Search, Image, Camera, MessageCircle,
   Instagram, Zap, CreditCard, ExternalLink, Check, Copy, Eye, EyeOff,
   ChevronDown, ChevronUp, Plug, PlugZap, AlertCircle, Loader2,
 } from "lucide-react";
