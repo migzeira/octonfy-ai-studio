@@ -48,6 +48,59 @@
     --sidebar-border: 240 15% 15%;
     --sidebar-ring: 239 84% 67%;
   }
+
+  /* ── Light theme ── */
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+
+    --primary: 217 91% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 239 84% 62%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 240 6% 92%;
+    --muted-foreground: 215 10% 40%;
+
+    --accent: 239 84% 62%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 40%;
+    --warning: 38 92% 45%;
+
+    --border: 240 6% 85%;
+    --input: 240 6% 85%;
+    --ring: 239 84% 62%;
+
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 240 10% 10%;
+    --sidebar-primary: 217 91% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 6% 92%;
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 240 6% 85%;
+    --sidebar-ring: 239 84% 62%;
+  }
+
+  /* ── Compact density ── */
+  .density-compact {
+    font-size: 14px;
+  }
+  .density-compact .p-6 { padding: 1rem; }
+  .density-compact .space-y-6 > * + * { margin-top: 1rem; }
+  .density-compact .space-y-4 > * + * { margin-top: 0.5rem; }
+  .density-compact .gap-4 { gap: 0.5rem; }
+  .density-compact .py-2 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
 }
 
 @layer base {
