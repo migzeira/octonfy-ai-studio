@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
+import { useRealtimeCredits } from "@/hooks/useRealtimeCredits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,33 +13,57 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building2, Monitor, Bell, User, Info } from "lucide-react";
+import { Building2, Monitor, Bell, User, Info, Palette, LogOut } from "lucide-react";
 
 const SECTIONS = [
   { id: "workspace", label: "Workspace", icon: Building2 },
   { id: "office", label: "Escritório", icon: Monitor },
   { id: "notifications", label: "Notificações", icon: Bell },
+  { id: "appearance", label: "Aparência", icon: Palette },
   { id: "account", label: "Conta", icon: User },
 ];
 const CEO_INTERVALS = [5, 10, 15, 30, 60];
 
+// ---------- helpers to isolate office settings inside additional_notes ----------
+function parseOfficeSettings(raw: string | null) {
+  try { const p = JSON.parse(raw || "{}"); return { ceoInterval: p.ceo_interval ?? 10, defaultMode: p.default_mode ?? "silent", userNotes: p.user_notes ?? "" }; }
+  catch { return { ceoInterval: 10, defaultMode: "silent" as const, userNotes: raw ?? "" }; }
+}
+
+function buildAdditionalNotes(ceoInterval: number, defaultMode: string, userNotes: string) {
+  return JSON.stringify({ ceo_interval: ceoInterval, default_mode: defaultMode, user_notes: userNotes });
+}
+
 export default function SettingsPage() {
   const { workspace, refetch, loading: wsLoading } = useWorkspace();
   const { user, signOut } = useAuth();
+  const { credits } = useRealtimeCredits(workspace?.id);
   const [section, setSection] = useState("workspace");
+
+  // workspace fields
   const [name, setName] = useState("");
   const [mission, setMission] = useState("");
   const [products, setProducts] = useState("");
   const [culture, setCulture] = useState("");
-  const [notes, setNotes] = useState("");
+  const [userNotes, setUserNotes] = useState("");
   const [savingWs, setSavingWs] = useState(false);
+
+  // office fields
   const [ceoInterval, setCeoInterval] = useState(10);
   const [defaultMode, setDefaultMode] = useState<"silent" | "autonomous">("silent");
+
+  // notifications
   const [notifCreditLow, setNotifCreditLow] = useState(true);
   const [notifCreditThreshold, setNotifCreditThreshold] = useState(100);
   const [notifAgentTask, setNotifAgentTask] = useState(true);
   const [notifDailySummary, setNotifDailySummary] = useState(false);
   const [notifSchedule, setNotifSchedule] = useState(true);
+
+  // appearance
+  const [theme, setTheme] = useState<"dark" | "light">(() => localStorage.getItem("octonfy-theme") as any ?? "dark");
+  const [density, setDensity] = useState<"comfortable" | "compact">(() => localStorage.getItem("octonfy-density") as any ?? "comfortable");
+
+  // account
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -47,14 +72,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (workspace) {
-      setName(workspace.name); setMission(workspace.mission || "");
-      setProducts(workspace.products || ""); setCulture(workspace.culture || "");
-      setNotes(workspace.additional_notes || "");
-      try {
-        const parsed = JSON.parse(workspace.additional_notes || "{}");
-        if (parsed.ceo_interval) setCeoInterval(parsed.ceo_interval);
-        if (parsed.default_mode) setDefaultMode(parsed.default_mode);
-      } catch {}
+      setName(workspace.name);
+      setMission(workspace.mission || "");
+      setProducts(workspace.products || "");
+      setCulture(workspace.culture || "");
+      const parsed = parseOfficeSettings(workspace.additional_notes);
+      setUserNotes(parsed.userNotes);
+      setCeoInterval(parsed.ceoInterval);
+      setDefaultMode(parsed.defaultMode as any);
     }
     const stored = localStorage.getItem("octonfy-notifications");
     if (stored) {
@@ -77,9 +102,10 @@ export default function SettingsPage() {
       </div>
     );
   }
+
   const saveWorkspace = async () => {
-    if (!workspace) return;
     setSavingWs(true);
+    const notes = buildAdditionalNotes(ceoInterval, defaultMode, userNotes);
     await supabase.from("workspaces").update({ name, mission, products, culture, additional_notes: notes }).eq("id", workspace.id);
     toast({ title: "✓ Workspace atualizado" });
     setSavingWs(false);
@@ -87,10 +113,8 @@ export default function SettingsPage() {
   };
 
   const saveOffice = async () => {
-    if (!workspace) return;
-    const current = (() => { try { return JSON.parse(workspace.additional_notes || "{}"); } catch { return {}; } })();
-    const updated = { ...current, ceo_interval: ceoInterval, default_mode: defaultMode };
-    await supabase.from("workspaces").update({ additional_notes: JSON.stringify(updated) }).eq("id", workspace.id);
+    const notes = buildAdditionalNotes(ceoInterval, defaultMode, userNotes);
+    await supabase.from("workspaces").update({ additional_notes: notes }).eq("id", workspace.id);
     toast({ title: "✓ Configurações do escritório salvas" });
     refetch();
   };
@@ -101,6 +125,13 @@ export default function SettingsPage() {
       agentTask: notifAgentTask, dailySummary: notifDailySummary, schedule: notifSchedule,
     }));
     toast({ title: "✓ Preferências salvas" });
+  };
+
+  const saveAppearance = () => {
+    localStorage.setItem("octonfy-theme", theme);
+    localStorage.setItem("octonfy-density", density);
+    document.documentElement.classList.toggle("light", theme === "light");
+    toast({ title: "✓ Aparência atualizada" });
   };
 
   const handleUpdateEmail = async () => {
@@ -121,10 +152,21 @@ export default function SettingsPage() {
   };
 
   const handleResetPositions = async () => {
-    if (!workspace) return;
     await supabase.from("agents").update({ position_x: 100, position_y: 100 }).eq("workspace_id", workspace.id);
     toast({ title: "Posições resetadas" });
   };
+
+  const handleDeleteAccount = async () => {
+    await supabase.from("workspaces").delete().eq("id", workspace.id);
+    await signOut();
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+  };
+
+  const realBalance = credits?.balance ?? 0;
+  const planLabel = workspace.plan || "Starter";
 
   return (
     <div className="flex h-full">
@@ -151,7 +193,7 @@ export default function SettingsPage() {
               <div><label className="text-sm font-medium mb-1 block">Missão</label><Textarea rows={3} value={mission} onChange={(e) => setMission(e.target.value)} /></div>
               <div><label className="text-sm font-medium mb-1 block">Produtos/Serviços</label><Textarea rows={3} value={products} onChange={(e) => setProducts(e.target.value)} /></div>
               <div><label className="text-sm font-medium mb-1 block">Cultura da empresa</label><Textarea rows={3} value={culture} onChange={(e) => setCulture(e.target.value)} /></div>
-              <div><label className="text-sm font-medium mb-1 block">Notas adicionais</label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+              <div><label className="text-sm font-medium mb-1 block">Notas adicionais</label><Textarea rows={2} value={userNotes} onChange={(e) => setUserNotes(e.target.value)} placeholder="Informações extras para os agentes..." /></div>
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex gap-3">
                 <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <p className="text-sm text-muted-foreground">Essas informações são usadas por todos os agentes como contexto da empresa. Mantenha sempre atualizado.</p>
@@ -218,6 +260,29 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {section === "appearance" && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">Aparência</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Tema</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setTheme("dark")} className={`px-4 py-2 rounded-lg text-sm ${theme === "dark" ? "gradient-cta text-white" : "bg-muted text-muted-foreground"}`}>🌙 Escuro</button>
+                  <button onClick={() => setTheme("light")} className={`px-4 py-2 rounded-lg text-sm ${theme === "light" ? "gradient-cta text-white" : "bg-muted text-muted-foreground"}`}>☀️ Claro</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Densidade da interface</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setDensity("comfortable")} className={`px-4 py-2 rounded-lg text-sm ${density === "comfortable" ? "gradient-cta text-white" : "bg-muted text-muted-foreground"}`}>Confortável</button>
+                  <button onClick={() => setDensity("compact")} className={`px-4 py-2 rounded-lg text-sm ${density === "compact" ? "gradient-cta text-white" : "bg-muted text-muted-foreground"}`}>Compacto</button>
+                </div>
+              </div>
+              <Button className="gradient-cta border-0" onClick={saveAppearance}>Salvar aparência</Button>
+            </div>
+          </div>
+        )}
+
         {section === "account" && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Sua Conta</h2>
@@ -244,13 +309,19 @@ export default function SettingsPage() {
             </div>
 
             <div className="rounded-xl border border-border bg-card p-5">
-              <p className="font-bold">Plano {workspace?.plan || "Starter"}</p>
-              <p className="text-sm text-muted-foreground">500 créditos iniciais inclusos</p>
+              <p className="font-bold">Plano {planLabel}</p>
+              <p className="text-sm text-muted-foreground">Saldo atual: <span className="font-semibold text-primary">{realBalance}</span> créditos</p>
+              {credits && <p className="text-xs text-muted-foreground mt-1">Total consumido: {credits.total_consumed ?? 0} · Total comprado: {credits.total_purchased ?? 0}</p>}
               <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/credits"}>Fazer upgrade</Button>
             </div>
 
+            <Button variant="outline" className="w-full flex items-center gap-2" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" /> Sair da conta
+            </Button>
+
             <div className="rounded-xl border border-destructive/30 p-5 space-y-3">
               <h3 className="font-semibold text-destructive">Zona de Perigo</h3>
+              <p className="text-sm text-muted-foreground">Excluir permanentemente seu workspace e todos os dados associados.</p>
               <Button variant="outline" className="text-destructive border-destructive/30" onClick={() => setShowDeleteDialog(true)}>Cancelar conta</Button>
             </div>
 
@@ -263,7 +334,7 @@ export default function SettingsPage() {
                 <Input placeholder='Digite "CONFIRMAR"' value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} />
                 <AlertDialogFooter>
                   <AlertDialogCancel>Voltar</AlertDialogCancel>
-                  <AlertDialogAction disabled={deleteConfirm !== "CONFIRMAR"} className="bg-destructive" onClick={() => { toast({ title: "Funcionalidade em desenvolvimento" }); setShowDeleteDialog(false); }}>Excluir conta</AlertDialogAction>
+                  <AlertDialogAction disabled={deleteConfirm !== "CONFIRMAR"} className="bg-destructive" onClick={handleDeleteAccount}>Excluir conta</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
