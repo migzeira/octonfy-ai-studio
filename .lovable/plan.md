@@ -1,37 +1,31 @@
 
-
-# Corrigir e Completar a Aba Logs
+# Corrigir e Completar a Aba Agendamentos
 
 ## Problemas encontrados
 
-### Bugs funcionais
-1. **Filtro de tipo quebrado** — o pill "Mensagens" tem key `"dm_sent,broadcast_sent"` como string única, mas o filtro faz `event_type.includes("dm_sent,broadcast_sent")` que nunca dá match. Precisa splittar por vírgula.
-2. **Filtragem client-side causa paginação errada** — type filters são aplicados DEPOIS do fetch, então a contagem de `hasMore` e o offset de `loadMore` ficam incorretos (ex: busca 30 do banco, filtra 5, mostra 5 mas diz "carregar mais" baseado nos 30 originais).
-3. **Sem realtime** — a página não escuta novos eventos em tempo real. O hook `useRealtimeEvents` existe mas não é usado aqui.
-4. **Sem debounce na busca** — cada letra digitada dispara uma query no banco.
-5. **Import não usado** — `useRealtimeAgents` é importado mas `agents` nunca é utilizado.
-6. **CSV mal escapado** — campos com vírgulas ou aspas quebram o arquivo.
+1. **Botão Editar não existe** — o state `editSchedule` foi declarado mas nunca é usado. Não há botão de editar nem modal de edição.
+2. **Sem execução manual** — não há botão "Executar agora" para disparar um agendamento imediatamente.
+3. **Sem validação de agente** — permite criar agendamento sem selecionar agente, mas o edge function ignora sem agente.
+4. **Sem feedback visual de execução** — não mostra o resultado da última execução.
+5. **Cron job não configurado** — a edge function `check-schedules` existe mas não tem cron para ser chamada periodicamente.
+6. **Sem realtime** — a lista não atualiza sozinha quando um agendamento dispara.
 
-### Funcionalidades faltando
-- **Stats resumo** no topo (total de eventos, por tipo mais frequente)
-- **Botão limpar filtros** quando filtros estão ativos
-- **Indicador de carregamento** no "carregar mais"
+## Correções
 
-## Plano de implementação
+### 1. SchedulesPage.tsx — Reescrita completa
+- Adicionar botão **Editar** em cada agendamento (abre modal preenchido)
+- Adicionar botão **Executar agora** que chama `check-schedules` ou `autonomous-ceo`
+- Validar que agente é obrigatório
+- Modal de edição reutiliza o formulário de criação
+- Stats cards: Total, Ativos, Execuções hoje
+- Realtime via subscription na tabela `schedules`
+- Mostrar instrução resumida no card
+- Loading state no botão executar
 
-### Arquivo: `src/pages/LogsPage.tsx` (reescrever)
-
-1. **Corrigir filtro de tipo** — ao aplicar type pills, splittar keys por vírgula e checar cada parte individualmente com `some()`
-2. **Mover filtro de tipo para a query SQL** — usar `.or()` ou `.in()` no Supabase ao invés de filtrar client-side, garantindo paginação correta
-3. **Adicionar realtime** — subscribir no channel `postgres_changes` para INSERT em `event_logs` e prepend novos eventos automaticamente
-4. **Debounce na busca** — usar `setTimeout` de 400ms antes de disparar fetch
-5. **Remover import de `useRealtimeAgents`**
-6. **Stats cards** — mostrar 4 cards no topo: Total, Hoje, Tipo mais frequente, Último evento
-7. **Botão limpar filtros** — aparece quando há filtros ativos
-8. **Loading state no "carregar mais"** — spinner enquanto busca próxima página
-9. **CSV robusto** — escapar campos com aspas duplas
-10. **Resolver actor display** — quando actor é UUID de agente, mostrar nome do agente (re-adicionar `useRealtimeAgents` com propósito claro)
+### 2. Configurar cron job
+- Usar pg_cron + pg_net para chamar `check-schedules` a cada minuto
+- Isso faz os agendamentos dispararem automaticamente
 
 ### Arquivos modificados
-- `src/pages/LogsPage.tsx` — reescrita completa com todas as correções
-
+- `src/pages/SchedulesPage.tsx` — reescrita completa
+- SQL insert para configurar cron job
