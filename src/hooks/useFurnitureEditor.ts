@@ -231,9 +231,10 @@ export const ROOM_TEMPLATES: RoomTemplate[] = [
 ];
 
 // ── DEFAULT OFFICE LAYOUT ────────────────────────────────────────────
-// All standard furniture is stored as placed items so the user can move/remove anything.
+// Layout padrão baseado no escritório do Miguel (migueldrops@gmail.com)
+// Todos os itens podem ser movidos/removidos pelo usuário.
 export const DEFAULT_OFFICE_LAYOUT: PlacedItem[] = [
-  // Bookshelves on top wall (col 0-18, row 0)
+  // ── Top wall: bookshelves across work area ──
   { id: "def-shelf-0",  type: "bookshelf", col:  0, row: 0, rotation: 0 },
   { id: "def-shelf-2",  type: "bookshelf", col:  2, row: 0, rotation: 0 },
   { id: "def-shelf-4",  type: "bookshelf", col:  4, row: 0, rotation: 0 },
@@ -244,40 +245,82 @@ export const DEFAULT_OFFICE_LAYOUT: PlacedItem[] = [
   { id: "def-shelf-14", type: "bookshelf", col: 14, row: 0, rotation: 0 },
   { id: "def-shelf-16", type: "bookshelf", col: 16, row: 0, rotation: 0 },
   { id: "def-shelf-18", type: "bookshelf", col: 18, row: 0, rotation: 0 },
-  // Top wall decor
-  { id: "def-whiteboard-0", type: "whiteboard",    col: 23, row: 0, rotation: 0 },
-  { id: "def-clock-0",      type: "clock",         col: 37, row: 0, rotation: 0 },
-  // Work desks + chairs (6 positions matching DESK_CONFIGS)
-  { id: "def-desk-0",  type: "desk",  col:  1, row:  2, rotation: 0 },
-  { id: "def-chair-0", type: "chair", col:  2, row:  5, rotation: 0 },
-  { id: "def-desk-1",  type: "desk",  col:  6, row:  2, rotation: 0 },
-  { id: "def-chair-1", type: "chair", col:  7, row:  5, rotation: 0 },
-  { id: "def-desk-2",  type: "desk",  col: 11, row:  2, rotation: 0 },
-  { id: "def-chair-2", type: "chair", col: 12, row:  5, rotation: 0 },
-  { id: "def-desk-3",  type: "desk",  col: 16, row:  2, rotation: 0 },
-  { id: "def-chair-3", type: "chair", col: 17, row:  5, rotation: 0 },
-  { id: "def-desk-4",  type: "desk",  col:  1, row: 11, rotation: 0 },
-  { id: "def-chair-4", type: "chair", col:  2, row: 14, rotation: 0 },
-  { id: "def-desk-5",  type: "desk",  col:  6, row: 11, rotation: 0 },
-  { id: "def-chair-5", type: "chair", col:  7, row: 14, rotation: 0 },
-  // Work area plants (variety)
-  { id: "def-plant-0", type: "plant",       col:  0, row:  3, rotation: 0 },
-  { id: "def-plant-1", type: "snake_plant", col:  0, row: 13, rotation: 0 },
-  { id: "def-plant-2", type: "plant",       col: 20, row:  3, rotation: 0 },
-  { id: "def-plant-3", type: "cactus",      col: 20, row: 13, rotation: 0 },
-  // Meeting room — oval table + decor
-  { id: "def-meet-table", type: "meeting_table", col: 26, row: 3, rotation: 0 },
-  { id: "def-plant-4",    type: "plant_small",   col: 22, row: 11, rotation: 0 },
-  { id: "def-plant-5",    type: "plant_small",   col: 37, row:  1, rotation: 0 },
-  // Break area — TV lounge
-  { id: "def-tv-0",           type: "tv",             col: 27, row: 13, rotation: 0 },
+
+  // ── CEO area (top-left) ──
+  { id: "def-ceo-desk",    type: "desk",      col:  5, row: 1, rotation: 0 },
+  { id: "def-ceo-chair",   type: "chair",     col:  6, row: 4, rotation: 0 },
+  { id: "def-ceo-plant",   type: "plant",     col:  0, row: 1, rotation: 0 },
+  { id: "def-ceo-plant2",  type: "snake_plant", col: 9, row: 1, rotation: 0 },
+
+  // ── Meeting room decor (top wall) ──
+  { id: "def-whiteboard-0", type: "whiteboard", col: 23, row: 0, rotation: 0 },
+  { id: "def-whiteboard-1", type: "whiteboard", col: 25, row: 0, rotation: 0 },
+  { id: "def-clock-0",      type: "clock",      col: 37, row: 0, rotation: 0 },
+
+  // ── Meeting room: 4 square tables in 2x2 grid + chairs ──
+  { id: "def-sq-tl", type: "table_square", col: 24, row: 3, rotation: 0 },
+  { id: "def-sq-tr", type: "table_square", col: 28, row: 3, rotation: 0 },
+  { id: "def-sq-bl", type: "table_square", col: 24, row: 7, rotation: 0 },
+  { id: "def-sq-br", type: "table_square", col: 28, row: 7, rotation: 0 },
+  // Chairs around meeting tables (left side)
+  { id: "def-meet-ch-l0", type: "chair", col: 22, row: 4, rotation: 0 },
+  { id: "def-meet-ch-l1", type: "chair", col: 22, row: 6, rotation: 0 },
+  { id: "def-meet-ch-l2", type: "chair", col: 22, row: 8, rotation: 0 },
+  // Chairs (right side)
+  { id: "def-meet-ch-r0", type: "chair", col: 32, row: 4, rotation: 0 },
+  { id: "def-meet-ch-r1", type: "chair", col: 32, row: 6, rotation: 0 },
+  { id: "def-meet-ch-r2", type: "chair", col: 32, row: 8, rotation: 0 },
+  // Chairs (top)
+  { id: "def-meet-ch-t0", type: "chair", col: 25, row: 2, rotation: 0 },
+  { id: "def-meet-ch-t1", type: "chair", col: 29, row: 2, rotation: 0 },
+  // Chairs (bottom)
+  { id: "def-meet-ch-b0", type: "chair", col: 25, row: 11, rotation: 0 },
+  { id: "def-meet-ch-b1", type: "chair", col: 29, row: 11, rotation: 0 },
+
+  // ── Work desks — Row 1 (2 desks) ──
+  { id: "def-desk-0",  type: "desk",  col:  1, row:  5, rotation: 0 },
+  { id: "def-chair-0", type: "chair", col:  2, row:  8, rotation: 0 },
+  { id: "def-desk-1",  type: "desk",  col:  6, row:  5, rotation: 0 },
+  { id: "def-chair-1", type: "chair", col:  7, row:  8, rotation: 0 },
+
+  // ── Work desks — Row 2 (3 desks) ──
+  { id: "def-desk-2",  type: "desk",  col:  1, row:  9, rotation: 0 },
+  { id: "def-chair-2", type: "chair", col:  2, row: 12, rotation: 0 },
+  { id: "def-desk-3",  type: "desk",  col:  6, row:  9, rotation: 0 },
+  { id: "def-chair-3", type: "chair", col:  7, row: 12, rotation: 0 },
+  { id: "def-desk-4",  type: "desk",  col: 11, row:  9, rotation: 0 },
+  { id: "def-chair-4", type: "chair", col: 12, row: 12, rotation: 0 },
+
+  // ── Work desks — Row 3 (4 desks) ──
+  { id: "def-desk-5",  type: "desk",  col:  1, row: 13, rotation: 0 },
+  { id: "def-chair-5", type: "chair", col:  2, row: 16, rotation: 0 },
+  { id: "def-desk-6",  type: "desk",  col:  6, row: 13, rotation: 0 },
+  { id: "def-chair-6", type: "chair", col:  7, row: 16, rotation: 0 },
+  { id: "def-desk-7",  type: "desk",  col: 11, row: 13, rotation: 0 },
+  { id: "def-chair-7", type: "chair", col: 12, row: 16, rotation: 0 },
+  { id: "def-desk-8",  type: "desk",  col: 16, row: 13, rotation: 0 },
+  { id: "def-chair-8", type: "chair", col: 17, row: 16, rotation: 0 },
+
+  // ── Work area plants ──
+  { id: "def-plant-0", type: "plant",       col:  0, row:  6, rotation: 0 },
+  { id: "def-plant-1", type: "snake_plant", col:  0, row: 14, rotation: 0 },
+  { id: "def-plant-2", type: "plant",       col: 20, row:  6, rotation: 0 },
+  { id: "def-plant-3", type: "cactus",      col: 20, row: 14, rotation: 0 },
+
+  // ── Break area (bottom-right, green zone) ──
+  { id: "def-tv-0",           type: "tv",             col: 30, row: 13, rotation: 0 },
   { id: "def-couch-0",        type: "couch",          col: 23, row: 16, rotation: 0 },
   { id: "def-coffee-table-0", type: "coffee_table",   col: 25, row: 15, rotation: 0 },
   { id: "def-coffee-mach-0",  type: "coffee_machine", col: 35, row: 13, rotation: 0 },
+  { id: "def-break-shelf-0",  type: "bookshelf",      col: 23, row: 18, rotation: 0 },
+  { id: "def-break-shelf-1",  type: "bookshelf",      col: 25, row: 18, rotation: 0 },
+  { id: "def-break-shelf-2",  type: "bookshelf",      col: 27, row: 18, rotation: 0 },
+  { id: "def-break-shelf-3",  type: "bookshelf",      col: 29, row: 18, rotation: 0 },
   { id: "def-cactus-0",       type: "cactus",         col: 22, row: 18, rotation: 0 },
-  { id: "def-plant-6",        type: "plant_small",    col: 37, row: 18, rotation: 0 },
-  { id: "def-plant-7",        type: "plant_small",    col: 22, row: 14, rotation: 0 },
-  // Rugs in break area (walkable — drawn under other items)
+  { id: "def-plant-4",        type: "plant_small",    col: 37, row: 18, rotation: 0 },
+  { id: "def-plant-5",        type: "plant_small",    col: 37, row: 13, rotation: 0 },
+  { id: "def-plant-6",        type: "plant",          col: 22, row: 14, rotation: 0 },
+  // Rugs (walkable, drawn under other items)
   { id: "def-rug-0", type: "rug", col: 24, row: 15, rotation: 0 },
   { id: "def-rug-1", type: "rug", col: 27, row: 15, rotation: 0 },
 ];
