@@ -1156,7 +1156,7 @@ export default function OfficeCanvas({
         for (const [id, ch] of charsRef.current) {
           const ag = agentsRef.current.find(a => a.id === id); if (!ag) continue;
           const st = ag.status ?? "idle";
-          ch.isActive  = (st === "working" || st === "thinking") && !meets.includes(id) && st !== "in_meeting";
+          ch.isActive  = (st === "working" || st === "thinking") && !meets.includes(id);
           ch.inMeeting = meets.includes(id) || st === "in_meeting";
           ch.isOffline = !ag.is_active || st === "offline";
           updateChar(ch, dt, map, walk);
