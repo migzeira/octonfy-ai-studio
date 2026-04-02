@@ -7,6 +7,7 @@ import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useRealtimeMeetings } from "@/hooks/useRealtimeMeetings";
 import { useFurnitureEditor } from "@/hooks/useFurnitureEditor";
 import type { PlacedItem } from "@/hooks/useFurnitureEditor";
+import { supabase } from "@/integrations/supabase/client";
 import OfficeCanvas from "@/components/office/OfficeCanvas";
 import OfficeEditorPanel from "@/components/office/OfficeEditorPanel";
 import OfficeTopBar from "@/components/office/OfficeTopBar";
@@ -61,8 +62,10 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const { activeMeeting } = useRealtimeMeetings(workspace.id);
   const {
     editorMode, selectedTool, setSelectedTool,
-    placedItems, placeItem, removeItem, rotateItem, clearAll, toggleEditor,
+    placedItems, placeItem, removeItem, rotateItem, moveItem, clearAll, toggleEditor,
     floorTheme, setFloorTheme,
+    customFloorColors, setZoneColor,
+    addRoomTemplate,
   } = useFurnitureEditor(workspace.id);
 
   const [activeTab, setActiveTab] = useState<"chat" | "meeting" | "status">("chat");
@@ -71,6 +74,7 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [agentPopup, setAgentPopup] = useState<{ agent: Agent; screenX: number; screenY: number } | null>(null);
   const [editingItem, setEditingItem] = useState<{ item: PlacedItem; screenX: number; screenY: number } | null>(null);
+  const [movingItemId, setMovingItemId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
@@ -88,11 +92,27 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setAgentPopup(null); if (editorMode) toggleEditor(); }
+      if (e.key === "Escape") {
+        setAgentPopup(null);
+        setMovingItemId(null);
+        setEditingItem(null);
+        if (editorMode) toggleEditor();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [editorMode, toggleEditor]);
+
+  // Send agent to rest (lounge) or back to work via Supabase status update
+  const handleRestAgent = useCallback(async (agentId: string) => {
+    await supabase.from("agents").update({ is_active: false, status: "idle" }).eq("id", agentId);
+    setAgentPopup(null);
+  }, []);
+
+  const handleActivateAgent = useCallback(async (agentId: string) => {
+    await supabase.from("agents").update({ is_active: true, status: "working" }).eq("id", agentId);
+    setAgentPopup(null);
+  }, []);
 
   const meetingParticipants: string[] = activeMeeting?.participants || [];
 
@@ -187,10 +207,14 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                 selectedTool={selectedTool}
                 onTileClick={placeItem}
                 onPlacedItemClick={(item, sx, sy) => {
+                  if (movingItemId) return; // ignore clicks when in move mode
                   const rect = containerRef.current?.getBoundingClientRect();
                   setEditingItem({ item, screenX: sx - (rect?.left ?? 0), screenY: sy - (rect?.top ?? 0) });
                 }}
                 floorTheme={floorTheme}
+                movingItemId={movingItemId}
+                onMoveItem={(id, col, row) => { moveItem(id, col, row); setMovingItemId(null); }}
+                customFloorColors={customFloorColors}
               />
               {editorMode && (
                 <OfficeEditorPanel
@@ -200,10 +224,22 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                   onClose={toggleEditor}
                   floorTheme={floorTheme}
                   onSetFloorTheme={setFloorTheme}
+                  customFloorColors={customFloorColors}
+                  onSetZoneColor={setZoneColor}
+                  onAddRoomTemplate={addRoomTemplate}
                 />
               )}
-              {/* Item edit popup (rotate / delete) */}
-              {editingItem && editorMode && (
+              {/* Move-mode hint banner */}
+              {movingItemId && editorMode && (
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2
+                                bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs px-4 py-1.5
+                                rounded-full backdrop-blur-sm pointer-events-none">
+                  ✋ Clique no canvas para posicionar — Esc para cancelar
+                </div>
+              )}
+
+              {/* Item edit popup (rotate / move / delete) */}
+              {editingItem && editorMode && !movingItemId && (
                 <>
                   <div className="absolute inset-0 z-25" onClick={() => setEditingItem(null)} />
                   <div
@@ -216,6 +252,12 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                       className="w-full flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg text-white hover:bg-white/10 transition-colors"
                     >
                       🔄 Girar 90°
+                    </button>
+                    <button
+                      onClick={() => { setMovingItemId(editingItem.item.id); setEditingItem(null); }}
+                      className="w-full flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg text-cyan-400 hover:bg-cyan-400/10 transition-colors"
+                    >
+                      ✋ Mover
                     </button>
                     <button
                       onClick={() => { removeItem(editingItem.item.id); setEditingItem(null); }}
@@ -267,6 +309,18 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                   className="w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg text-foreground hover:bg-[#1e1e2e] transition-colors text-left">
                   <Video className="h-3.5 w-3.5 text-green-400" /> Chamar para reunião
                 </button>
+                {/* Behavior controls — change agent status → FSM reacts in canvas */}
+                {agentPopup.agent.is_active !== false ? (
+                  <button onClick={() => handleRestAgent(agentPopup.agent.id)}
+                    className="w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg text-amber-400 hover:bg-amber-400/10 transition-colors text-left">
+                    🛋️ Mandar descansar
+                  </button>
+                ) : (
+                  <button onClick={() => handleActivateAgent(agentPopup.agent.id)}
+                    className="w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg text-emerald-400 hover:bg-emerald-400/10 transition-colors text-left">
+                    💼 Chamar para trabalhar
+                  </button>
+                )}
               </div>
             </div>
           </>

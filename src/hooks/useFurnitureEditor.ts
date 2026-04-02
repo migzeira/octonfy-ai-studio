@@ -4,7 +4,7 @@ export type FurnitureType =
   | "desk" | "chair" | "plant" | "plant_small" | "cactus" | "snake_plant"
   | "bookshelf" | "tv" | "couch" | "coffee_table"
   | "coffee_machine" | "whiteboard" | "clock" | "rug" | "poster"
-  | "wall_h" | "wall_v" | "door" | "meeting_table";
+  | "wall_h" | "wall_v" | "door" | "meeting_table" | "table_square";
 
 export interface PlacedItem {
   id: string;
@@ -63,6 +63,7 @@ export const ITEM_SIZES: Record<FurnitureType, [number, number]> = {
   wall_v:         [1, 2],
   door:           [1, 2],
   meeting_table:  [8, 6],
+  table_square:   [3, 3],
 };
 
 // Items that agents can walk over (not blocking pathfinding)
@@ -102,6 +103,7 @@ export const FURNITURE_CATALOG = [
     category: "Sala de Reunião",
     items: [
       { type: "meeting_table" as FurnitureType, label: "Mesa Oval", emoji: "⬭", size: [8, 6] },
+      { type: "table_square" as FurnitureType, label: "Mesa Quadrada", emoji: "⬜", size: [3, 3] },
       { type: "whiteboard" as FurnitureType, label: "Quadro Branco", emoji: "📋", size: [2, 1] },
     ],
   },
@@ -118,6 +120,112 @@ export const FURNITURE_CATALOG = [
       { type: "wall_h" as FurnitureType, label: "Parede H", emoji: "🧱", size: [2, 1] },
       { type: "wall_v" as FurnitureType, label: "Parede V", emoji: "🧱", size: [1, 2] },
       { type: "door" as FurnitureType, label: "Porta", emoji: "🚪", size: [1, 2] },
+    ],
+  },
+];
+
+// ── ROOM TEMPLATES ────────────────────────────────────────────────────
+export interface RoomTemplate {
+  id: string;
+  emoji: string;
+  label: string;
+  description: string;
+  items: Array<{
+    type: FurnitureType;
+    col: number;
+    row: number;
+    rotation?: 0 | 1 | 2 | 3;
+  }>;
+}
+
+export const ROOM_TEMPLATES: RoomTemplate[] = [
+  {
+    id: "ceo",
+    emoji: "🏆",
+    label: "Escritório CEO",
+    description: "Mesa executiva, estante, sofá e plantas",
+    items: [
+      { type: "desk",          col: 1, row: 1 },
+      { type: "chair",         col: 2, row: 4 },
+      { type: "bookshelf",     col: 0, row: 0 },
+      { type: "bookshelf",     col: 2, row: 0 },
+      { type: "couch",         col: 4, row: 3 },
+      { type: "coffee_table",  col: 5, row: 2 },
+      { type: "plant",         col: 0, row: 2 },
+      { type: "snake_plant",   col: 7, row: 0 },
+    ],
+  },
+  {
+    id: "meeting_small",
+    emoji: "📊",
+    label: "Sala de Reunião",
+    description: "Mesa quadrada com cadeiras e quadro branco",
+    items: [
+      { type: "table_square",  col: 1, row: 1 },
+      { type: "chair",         col: 1, row: 0 },
+      { type: "chair",         col: 2, row: 0 },
+      { type: "chair",         col: 0, row: 2 },
+      { type: "chair",         col: 4, row: 2 },
+      { type: "whiteboard",    col: 0, row: 0 },
+      { type: "plant_small",   col: 5, row: 0 },
+    ],
+  },
+  {
+    id: "copa",
+    emoji: "☕",
+    label: "Copa / Cozinha",
+    description: "Cafeteira, mesas e cadeiras para descanso",
+    items: [
+      { type: "coffee_machine", col: 0, row: 0 },
+      { type: "coffee_table",   col: 2, row: 0 },
+      { type: "chair",          col: 2, row: 2 },
+      { type: "chair",          col: 4, row: 2 },
+      { type: "plant_small",    col: 5, row: 0 },
+      { type: "clock",          col: 5, row: 2 },
+    ],
+  },
+  {
+    id: "reception",
+    emoji: "🏛️",
+    label: "Recepção",
+    description: "Mesa de recepção, cadeiras para visitantes e plantas",
+    items: [
+      { type: "desk",          col: 1, row: 0 },
+      { type: "chair",         col: 2, row: 3 },
+      { type: "couch",         col: 5, row: 2 },
+      { type: "coffee_table",  col: 6, row: 1 },
+      { type: "plant",         col: 0, row: 2 },
+      { type: "plant",         col: 9, row: 0 },
+    ],
+  },
+  {
+    id: "ti",
+    emoji: "💻",
+    label: "Sala de TI",
+    description: "Múltiplas estações de trabalho e servidor",
+    items: [
+      { type: "desk",       col: 0, row: 0 },
+      { type: "chair",      col: 1, row: 3 },
+      { type: "desk",       col: 4, row: 0 },
+      { type: "chair",      col: 5, row: 3 },
+      { type: "bookshelf",  col: 8, row: 0 },
+      { type: "bookshelf",  col: 8, row: 1 },
+      { type: "whiteboard", col: 0, row: 5 },
+    ],
+  },
+  {
+    id: "lounge",
+    emoji: "🛋️",
+    label: "Sala de Descanso",
+    description: "TV, sofá, tapete e plantas para relaxar",
+    items: [
+      { type: "tv",           col: 1, row: 0 },
+      { type: "couch",        col: 1, row: 3 },
+      { type: "rug",          col: 1, row: 2 },
+      { type: "coffee_table", col: 2, row: 2 },
+      { type: "plant",        col: 0, row: 2 },
+      { type: "cactus",       col: 6, row: 3 },
+      { type: "plant_small",  col: 6, row: 0 },
     ],
   },
 ];
@@ -177,13 +285,19 @@ export const DEFAULT_OFFICE_LAYOUT: PlacedItem[] = [
 // ── HOOK ─────────────────────────────────────────────────────────────
 // localStorage key v2: fresh start with DEFAULT_OFFICE_LAYOUT for all workspaces
 export function useFurnitureEditor(workspaceId: string) {
-  const itemsKey = `octonfy-office-v2-${workspaceId}`;
-  const themeKey = `octonfy-floor-${workspaceId}`;
+  const itemsKey      = `octonfy-office-v2-${workspaceId}`;
+  const themeKey      = `octonfy-floor-${workspaceId}`;
+  const floorColorKey = `octonfy-floor-colors-${workspaceId}`;
 
   const [editorMode, setEditorMode] = useState(false);
   const [selectedTool, setSelectedTool] = useState<FurnitureType | null>(null);
   const [placedItems, setPlacedItems] = useState<PlacedItem[]>([]);
   const [floorTheme, setFloorThemeState] = useState<FloorTheme>("warm");
+  const [customFloorColors, setCustomFloorColors] = useState<{
+    work: string | null;
+    meet: string | null;
+    break: string | null;
+  }>({ work: null, meet: null, break: null });
 
   // Load from localStorage; if key absent, seed with DEFAULT_OFFICE_LAYOUT
   useEffect(() => {
@@ -201,16 +315,31 @@ export function useFurnitureEditor(workspaceId: string) {
       const t = localStorage.getItem(themeKey) as FloorTheme | null;
       if (t && t in FLOOR_THEMES) setFloorThemeState(t);
     } catch { /* ignore */ }
-  }, [itemsKey, themeKey]);
+    try {
+      const rawColors = localStorage.getItem(floorColorKey);
+      if (rawColors !== null) {
+        setCustomFloorColors(JSON.parse(rawColors));
+      }
+    } catch { /* ignore */ }
+  }, [itemsKey, themeKey, floorColorKey]);
 
   // Persist items on every change
   useEffect(() => {
     try { localStorage.setItem(itemsKey, JSON.stringify(placedItems)); } catch { /* ignore */ }
   }, [placedItems, itemsKey]);
 
+  // Persist custom floor colors on every change
+  useEffect(() => {
+    try { localStorage.setItem(floorColorKey, JSON.stringify(customFloorColors)); } catch { /* ignore */ }
+  }, [customFloorColors, floorColorKey]);
+
   const setFloorTheme = (t: FloorTheme) => {
     setFloorThemeState(t);
     try { localStorage.setItem(themeKey, t); } catch { /* ignore */ }
+  };
+
+  const setZoneColor = (zone: "work" | "meet" | "break", color: string) => {
+    setCustomFloorColors(prev => ({ ...prev, [zone]: color }));
   };
 
   const placeItem = (col: number, row: number) => {
@@ -234,6 +363,25 @@ export function useFurnitureEditor(workspaceId: string) {
     ));
   };
 
+  const moveItem = (id: string, col: number, row: number) => {
+    setPlacedItems(prev => prev.map(i =>
+      i.id === id ? { ...i, col, row } : i
+    ));
+  };
+
+  const addRoomTemplate = (templateId: string, baseCol: number = 1, baseRow: number = 7) => {
+    const template = ROOM_TEMPLATES.find(t => t.id === templateId);
+    if (!template) return;
+    const newItems: PlacedItem[] = template.items.map(item => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type: item.type,
+      col: baseCol + item.col,
+      row: baseRow + item.row,
+      rotation: (item.rotation ?? 0) as 0 | 1 | 2 | 3,
+    }));
+    setPlacedItems(prev => [...prev, ...newItems]);
+  };
+
   // Restore to default layout (not an empty slate)
   const clearAll = () => setPlacedItems(DEFAULT_OFFICE_LAYOUT);
 
@@ -246,7 +394,9 @@ export function useFurnitureEditor(workspaceId: string) {
 
   return {
     editorMode, selectedTool, setSelectedTool,
-    placedItems, placeItem, removeItem, rotateItem, clearAll, toggleEditor,
+    placedItems, placeItem, removeItem, rotateItem, moveItem, clearAll, toggleEditor,
     floorTheme, setFloorTheme,
+    customFloorColors, setZoneColor,
+    addRoomTemplate,
   };
 }

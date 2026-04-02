@@ -62,6 +62,13 @@ const P = {
 };
 
 /* ─── UTILITY ─────────────────────────────────────────────────── */
+function darkenHex(hex: string, amount: number): string {
+  const r = Math.max(0, Math.round(parseInt(hex.slice(1, 3), 16) * (1 - amount)));
+  const g = Math.max(0, Math.round(parseInt(hex.slice(3, 5), 16) * (1 - amount)));
+  const b = Math.max(0, Math.round(parseInt(hex.slice(5, 7), 16) * (1 - amount)));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   r = Math.min(r, Math.min(w, h) / 2);
   ctx.beginPath();
@@ -571,6 +578,35 @@ function drawCoffeeTable(ctx: CanvasRenderingContext2D, col: number, row: number
   ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(x + 4, y + TILE - 4, TILE * 2 - 8, 4);
 }
 
+/** Square conference table: 3×3 tiles */
+function drawSquareTable(ctx: CanvasRenderingContext2D, col: number, row: number) {
+  const x = col * TILE, y = row * TILE;
+  const w = TILE * 3, h = TILE * 3;
+  // Drop shadow
+  ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x + 5, y + h, w - 5, 6); ctx.fillRect(x + w, y + 5, 6, h - 5);
+  // Table surface
+  ctx.fillStyle = P.tableW; rr(ctx, x + 3, y + 3, w - 6, h - 6, 8); ctx.fill();
+  // Wood grain lines
+  ctx.strokeStyle = "rgba(60,30,0,0.18)"; ctx.lineWidth = 1;
+  for (let g = 8; g < w - 8; g += 9) {
+    ctx.beginPath(); ctx.moveTo(x + g, y + 6); ctx.lineTo(x + g + 5, y + h - 6); ctx.stroke();
+  }
+  // Inner border highlight
+  ctx.strokeStyle = P.tableWhi; ctx.lineWidth = 1.5;
+  rr(ctx, x + 7, y + 7, w - 14, h - 14, 5); ctx.stroke();
+  // Top gloss
+  ctx.fillStyle = "rgba(255,255,255,0.07)"; rr(ctx, x + 9, y + 9, w - 18, (h - 18) * 0.28, 4); ctx.fill();
+  // Bottom edge shadow
+  ctx.fillStyle = P.tableSh; ctx.fillRect(x + 7, y + h - 9, w - 14, 4);
+  // Center logo + corner dots
+  ctx.fillStyle = "rgba(200,140,60,0.3)"; ctx.font = "bold 9px monospace";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("OCTONFY", x + w / 2, y + h / 2);
+  [[x + 12, y + 12], [x + w - 12, y + 12], [x + 12, y + h - 12], [x + w - 12, y + h - 12]].forEach(([px, py]) => {
+    ctx.fillStyle = "rgba(160,100,40,0.25)"; ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
 /* ─── ROTATION HELPERS ────────────────────────────────────────── */
 function getRotatedSize(type: FurnitureType, rotation: number): [number, number] {
   const [w, h] = ITEM_SIZES[type] ?? [1, 1];
@@ -652,8 +688,9 @@ function dispatchDraw(ctx: CanvasRenderingContext2D, type: FurnitureType, col: n
       ctx.fillStyle = "#110e20"; ctx.fillRect(vx, vy + vh - 2, vw, 2);
       break;
     }
-    case "door":        drawDoor(ctx, col, row); break;
+    case "door":          drawDoor(ctx, col, row); break;
     case "meeting_table": drawMeetingTableAt(ctx, col, row); break;
+    case "table_square":  drawSquareTable(ctx, col, row); break;
   }
 }
 
@@ -681,30 +718,60 @@ function drawPlacedItem(ctx: CanvasRenderingContext2D, item: PlacedItem) {
 
 /* ─── FULL OFFICE BACKGROUND ─────────────────────────────────── */
 interface FloorColors { workA:string; workB:string; meetA:string; meetB:string; breakA:string; breakB:string; }
+interface CustomZoneColors { work: string | null; meet: string | null; break: string | null; }
 
-function drawOffice(ctx: CanvasRenderingContext2D, placedItems: PlacedItem[], fc: FloorColors) {
-  // ── Floors ────────────────────────────────────────────────────────
-  fillCheckerboard(ctx, 0, TILE, WORK_W, CANVAS_H - TILE, fc.workA, fc.workB);
-  fillCheckerboard(ctx, MEET_X, TILE, CANVAS_W - MEET_X, BREAK_Y - TILE, fc.meetA, fc.meetB);
-  fillCheckerboard(ctx, MEET_X, BREAK_Y, CANVAS_W - MEET_X, CANVAS_H - BREAK_Y, fc.breakA, fc.breakB);
+function drawOffice(
+  ctx: CanvasRenderingContext2D,
+  placedItems: PlacedItem[],
+  fc: FloorColors,
+  movingItemId: string | null = null,
+  hoverTile: { col: number; row: number } = { col: -1, row: -1 },
+  customColors: CustomZoneColors | null = null,
+) {
+  // ── Floors — custom color overrides preset theme ──────────────────
+  const wA = customColors?.work  ? customColors.work  : fc.workA;
+  const wB = customColors?.work  ? darkenHex(customColors.work, 0.14)  : fc.workB;
+  const mA = customColors?.meet  ? customColors.meet  : fc.meetA;
+  const mB = customColors?.meet  ? darkenHex(customColors.meet, 0.14)  : fc.meetB;
+  const bA = customColors?.break ? customColors.break : fc.breakA;
+  const bB = customColors?.break ? darkenHex(customColors.break, 0.14) : fc.breakB;
+  fillCheckerboard(ctx, 0, TILE, WORK_W, CANVAS_H - TILE, wA, wB);
+  fillCheckerboard(ctx, MEET_X, TILE, CANVAS_W - MEET_X, BREAK_Y - TILE, mA, mB);
+  fillCheckerboard(ctx, MEET_X, BREAK_Y, CANVAS_W - MEET_X, CANVAS_H - BREAK_Y, bA, bB);
 
-  // ── Structural walls (always drawn regardless of placed items) ────
-  // Top wall strip
+  // ── Structural walls ──────────────────────────────────────────────
   ctx.fillStyle = P.wall; ctx.fillRect(0, 0, CANVAS_W, TILE);
   ctx.fillStyle = P.wallAccent; ctx.fillRect(MEET_X, 0, CANVAS_W - MEET_X, 4);
-  // Vertical divider between work area and meeting/break zones
   ctx.fillStyle = P.wall; ctx.fillRect(MEET_X - TILE, 0, TILE, CANVAS_H);
   ctx.fillStyle = P.wallHi; ctx.fillRect(MEET_X - 4, 0, 4, CANVAS_H);
-  // Horizontal divider between meeting room and break area
   ctx.fillRect(MEET_X, BREAK_Y - 8, CANVAS_W - MEET_X, 8);
 
-  // ── All furniture comes from placedItems (DEFAULT_OFFICE_LAYOUT + user edits) ──
-  // Walkable items (rugs, posters, clocks) are drawn first so solid items sit on top
+  // ── Furniture — walkable (rugs/etc) drawn first, solid items on top ──
   for (const item of placedItems) {
+    if (item.id === movingItemId) continue;           // skip — will draw as ghost
     if (WALKABLE_ITEM_TYPES.has(item.type)) drawPlacedItem(ctx, item);
   }
   for (const item of placedItems) {
+    if (item.id === movingItemId) continue;
     if (!WALKABLE_ITEM_TYPES.has(item.type)) drawPlacedItem(ctx, item);
+  }
+
+  // ── Ghost for item being moved ────────────────────────────────────
+  if (movingItemId && hoverTile.col >= 0 && hoverTile.row >= 0) {
+    const ghost = placedItems.find(i => i.id === movingItemId);
+    if (ghost) {
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      drawPlacedItem(ctx, { ...ghost, col: hoverTile.col, row: hoverTile.row });
+      ctx.restore();
+      // Highlight footprint border
+      const [origW, origH] = ITEM_SIZES[ghost.type] ?? [1, 1];
+      const rot = ghost.rotation ?? 0;
+      const gw = rot % 2 === 1 ? origH : origW;
+      const gh2 = rot % 2 === 1 ? origW : origH;
+      ctx.strokeStyle = "rgba(80,220,255,0.8)"; ctx.lineWidth = 2;
+      ctx.strokeRect(hoverTile.col * TILE, hoverTile.row * TILE, gw * TILE, gh2 * TILE);
+    }
   }
 
   // ── Zone labels ───────────────────────────────────────────────────
@@ -948,6 +1015,9 @@ interface OfficeCanvasProps {
   onTileClick?:        (col: number, row: number) => void;
   onPlacedItemClick?:  (item: PlacedItem, screenX: number, screenY: number) => void;
   floorTheme?:         FloorTheme;
+  movingItemId?:       string | null;
+  onMoveItem?:         (id: string, col: number, row: number) => void;
+  customFloorColors?:  { work: string | null; meet: string | null; break: string | null } | null;
 }
 
 /* ─── DYNAMIC TILE MAP (placed items block pathfinding) ───────── */
@@ -979,28 +1049,33 @@ export default function OfficeCanvas({
   meetingParticipants, containerWidth, containerHeight,
   placedItems = [], editorMode = false, selectedTool = null,
   onTileClick, onPlacedItemClick, floorTheme = "warm",
+  movingItemId = null, onMoveItem, customFloorColors = null,
 }: OfficeCanvasProps) {
-  const canvasRef      = useRef<HTMLCanvasElement>(null);
-  const charsRef       = useRef<Map<string, Char>>(new Map());
-  const agentsRef      = useRef(agents);
-  const meetsRef       = useRef(meetingParticipants);
-  const selRef         = useRef(selectedAgentId);
-  const charImgsRef    = useRef<(HTMLImageElement | null)[]>([]);
-  const baseTileMapRef = useRef(buildTileMap());
-  const dynMapRef      = useRef(baseTileMapRef.current);
-  const walkRef        = useRef(getWalkableTiles(baseTileMapRef.current));
-  const placedRef      = useRef(placedItems);
-  const editorRef      = useRef(editorMode);
-  const toolRef        = useRef(selectedTool);
-  const themeRef       = useRef(floorTheme);
+  const canvasRef        = useRef<HTMLCanvasElement>(null);
+  const charsRef         = useRef<Map<string, Char>>(new Map());
+  const agentsRef        = useRef(agents);
+  const meetsRef         = useRef(meetingParticipants);
+  const selRef           = useRef(selectedAgentId);
+  const charImgsRef      = useRef<(HTMLImageElement | null)[]>([]);
+  const baseTileMapRef   = useRef(buildTileMap());
+  const dynMapRef        = useRef(baseTileMapRef.current);
+  const walkRef          = useRef(getWalkableTiles(baseTileMapRef.current));
+  const placedRef        = useRef(placedItems);
+  const editorRef        = useRef(editorMode);
+  const toolRef          = useRef(selectedTool);
+  const themeRef         = useRef(floorTheme);
+  const movingIdRef      = useRef(movingItemId);
+  const customColorsRef  = useRef(customFloorColors);
 
-  agentsRef.current = agents;
-  meetsRef.current  = meetingParticipants;
-  selRef.current    = selectedAgentId;
-  placedRef.current = placedItems;
-  editorRef.current = editorMode;
-  toolRef.current   = selectedTool;
-  themeRef.current  = floorTheme;
+  agentsRef.current     = agents;
+  meetsRef.current      = meetingParticipants;
+  selRef.current        = selectedAgentId;
+  placedRef.current     = placedItems;
+  editorRef.current     = editorMode;
+  toolRef.current       = selectedTool;
+  themeRef.current      = floorTheme;
+  movingIdRef.current   = movingItemId;
+  customColorsRef.current = customFloorColors;
 
   const [hoverTile, setHoverTile] = useState({ col: -1, row: -1 });
 
@@ -1041,6 +1116,11 @@ export default function OfficeCanvas({
     const t = getCanvasTile(e); if (!t) return;
 
     if (editorRef.current) {
+      // Move mode: clicking any tile moves the dragged item there
+      if (movingIdRef.current && onMoveItem) {
+        onMoveItem(movingIdRef.current, t.col, t.row);
+        return;
+      }
       if (toolRef.current && onTileClick) { onTileClick(t.col, t.row); return; }
       // No tool selected: check if clicking an existing placed item
       if (!toolRef.current && onPlacedItemClick) {
@@ -1085,8 +1165,8 @@ export default function OfficeCanvas({
       render(ctx) {
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
         const fc = FLOOR_THEMES[themeRef.current] ?? FLOOR_THEMES.warm;
-        drawOffice(ctx, placedRef.current, fc);
-        if (editorRef.current) drawEditorOverlay(ctx, hoverTile.col, hoverTile.row, !!toolRef.current);
+        drawOffice(ctx, placedRef.current, fc, movingIdRef.current, hoverTile, customColorsRef.current);
+        if (editorRef.current) drawEditorOverlay(ctx, hoverTile.col, hoverTile.row, !!toolRef.current || !!movingIdRef.current);
         const sorted = [...charsRef.current.values()].sort((a, b) => a.y - b.y);
         for (const ch of sorted) {
           const ag = agentsRef.current.find(a => a.id === ch.id); if (!ag) continue;
@@ -1117,7 +1197,11 @@ export default function OfficeCanvas({
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={editorMode && selectedTool ? "cursor-crosshair" : editorMode ? "cursor-default" : "cursor-pointer"}
+        className={
+          movingItemId ? "cursor-grab" :
+          editorMode && selectedTool ? "cursor-crosshair" :
+          editorMode ? "cursor-default" : "cursor-pointer"
+        }
         style={{
           imageRendering: "pixelated",
           width:  displayW,
