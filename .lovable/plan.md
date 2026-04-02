@@ -1,65 +1,71 @@
 
 
-# Reescrever OfficeCanvas com Sprite Sheet LPC + Canvas 2D
+# Varredura da aba Configurações + Correção de Build Errors
 
-## Resumo
+## Bugs e problemas encontrados
 
-Substituir completamente o `OfficeCanvas.tsx` baseado em react-konva por um componente HTML Canvas 2D puro que usa o sprite sheet `/character-spritesheet.png` para animar agentes.
+### 1. Build errors críticos (app não compila)
 
-## Mudanças
+**`src/hooks/useAgentAnimations.tsx` linha 4**: Importa `getDeskPos` e `getMeetingChairPos` de `OfficeCanvas`, mas essas funções não existem mais (foram removidas na reescrita do canvas). O hook inteiro usa `Konva` que também foi removido do canvas.
 
-### 1. Copiar sprite sheet para o projeto
-- `lov-copy user-uploads://character-spritesheet.png public/character-spritesheet.png`
+**`src/components/office/OfficeCanvas.tsx` linha 1159**: Comparação TypeScript impossível — `st` já foi narrowed para `"working" | "thinking"` mas depois compara com `"in_meeting"`, que o TS rejeita.
 
-### 2. Reescrever `src/components/office/OfficeCanvas.tsx`
-- Remover todas as importações de react-konva, konva, pixelSprites e useAgentAnimations
-- Usar `<canvas ref={canvasRef}>` com ResizeObserver para preencher 100% do container
-- Carregar sprite sheet via `new Image()` em `useRef`
-- Estado interno de cada agente: `{ x, y, frameIndex, direction, lastFrameTime, targetX, targetY, status }`
+**Correção**: 
+- Reescrever `useAgentAnimations.tsx` como um hook leve (sem Konva, sem referências ao canvas antigo) que apenas calcula posições/estados para o novo canvas
+- Corrigir a lógica de comparação na linha 1159
 
-**Sprite frames (64x64 cada):**
-- Walk DOWN: row y=640, 9 frames (x = frame * 64)
-- Walk LEFT: row y=576, 9 frames  
-- Walk RIGHT: row y=704, 9 frames
-- Idle: frame 0 de walk down (x=0, y=640)
+### 2. Conflito Workspace notes vs Office settings
 
-**Escala:** `ctx.drawImage(img, srcX, srcY, 64, 64, destX, destY, 32, 32)`
+A seção "Escritório" salva `ceo_interval` e `default_mode` dentro de `additional_notes` como JSON. Mas a seção "Workspace" mostra `additional_notes` como texto livre editável. Se o usuário digita texto na seção Workspace e salva, **sobrescreve** as configurações do escritório. E vice-versa.
 
-**Layout do escritório (constantes mantidas):**
-- Background: `#0d0d14`
-- Work area (top-left ~70%): piso `#1a1a2e`, mesas `#16213e` com monitores pixel
-- Meeting room (top-right ~30%): piso `#0f3460`, mesa oval, cadeiras
-- Break area (bottom-right): sofá, plantas, máquina de café
-- Paredes com borda `#533483`
+**Correção**: Separar — a seção Workspace NÃO deve editar `additional_notes` diretamente. Guardar settings do escritório em um campo separado ou em prefixo JSON protegido.
 
-**Comportamento por status:**
-- `working`: na mesa, sprite idle (frame 0 walk down), ícone 💻 acima
-- `thinking`: na mesa, sprite idle, balão "..." animado
-- `idle`: wander na break area, walk animado mudando direção a cada 2-3s
-- `in_meeting`: na sala de reunião, frame 0 walk right
-- `offline`: sprite idle, opacity 0.4
+### 3. Cancelar conta não funciona
 
-**Labels por agente:**
-- Nome em branco abaixo (10px)
-- Círculo de status colorido (verde=working, amarelo=thinking, azul=meeting, cinza=idle)
+O botão "Excluir conta" apenas mostra um toast "Funcionalidade em desenvolvimento". Precisa implementar ou remover.
 
-**Animação:** `requestAnimationFrame` loop, troca frame a cada 120ms para walk
+### 4. Notificações salvas apenas em localStorage
 
-**Interação:** click detection via distância ao ponto do agente, chama `onAgentClick`
+Não persiste entre dispositivos. Funciona, mas é limitado.
 
-**Zoom/pan:** manter controles de zoom (+, -, reset) com transform do canvas via `ctx.setTransform()` e mouse wheel
+### 5. Plano mostra "Starter" hardcoded
 
-**Mini-map:** reimplementar como mini canvas 160x107 no canto
+O card de plano diz "500 créditos iniciais inclusos" fixo, sem consultar o saldo real.
 
-### 3. Atualizar `src/pages/OfficePage.tsx`
-- Manter mesma interface de props (agents: Agent[], onAgentClick, etc.)
-- Remover `containerWidth`/`containerHeight` props se o canvas gerenciar próprio sizing via ResizeObserver interno
+---
 
-### 4. Remover dependências obsoletas
-- O `pixelSprites.ts` e `useAgentAnimations.tsx` ficam sem uso por este componente (manter por enquanto caso outros importem)
+## Ideias para completar a aba
 
-## Arquivos modificados
-- **Copiado:** `public/character-spritesheet.png`
-- **Reescrito:** `src/components/office/OfficeCanvas.tsx`
-- **Atualizado:** `src/pages/OfficePage.tsx` (ajuste de props se necessário)
+1. **Seção "Aparência"** — tema claro/escuro, tamanho de fonte do chat
+2. **Exportar/Importar dados** — baixar workspace completo (agentes, docs, tasks) como JSON
+3. **Gerenciar API Keys** — ver/editar chaves das integrações conectadas direto nas settings
+4. **Idioma** — seletor PT-BR / EN / ES
+5. **Logout visível** — botão de sair na seção Conta (hoje só existe no sidebar)
+6. **Histórico de atividade** — últimas ações no workspace (já tem `event_logs`)
+
+---
+
+## Plano de implementação
+
+### Passo 1 — Corrigir build errors
+- **`useAgentAnimations.tsx`**: Reescrever como stub simples (export vazio ou hook que retorna estado mínimo) já que o novo `OfficeCanvas.tsx` não o usa
+- **`OfficeCanvas.tsx` linha 1159**: Simplificar condição para `const isWorking = (st === "working" || st === "thinking") && !meets.includes(id);`
+
+### Passo 2 — Corrigir conflito additional_notes
+- Na seção "Workspace", remover o campo `additional_notes` do formulário visual (ou torná-lo read-only)
+- Na seção "Escritório", continuar salvando JSON em `additional_notes` mas de forma isolada
+
+### Passo 3 — Polir seção Conta
+- Mostrar saldo real de créditos (consultar tabela `credits`)
+- Implementar exclusão de conta real (deletar workspace + signOut) ou esconder botão
+- Adicionar botão de Logout
+
+### Passo 4 — Adicionar seção Aparência
+- Nova aba com toggle tema claro/escuro (salvo em localStorage)
+- Opção de densidade da UI (compacto/confortável)
+
+### Arquivos modificados
+- `src/hooks/useAgentAnimations.tsx` — reescrever como stub
+- `src/components/office/OfficeCanvas.tsx` — fix linha 1159
+- `src/pages/SettingsPage.tsx` — corrigir conflito notes, polir conta, adicionar seção aparência
 
