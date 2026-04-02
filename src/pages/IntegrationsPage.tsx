@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Search, Image, Camera, MessageCircle,
-  Instagram, Zap, CreditCard, ExternalLink, Check, Copy, Eye, EyeOff,
+  Zap, ExternalLink, Check, Copy, Eye, EyeOff,
   ChevronDown, ChevronUp, Plug, PlugZap, AlertCircle, Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
