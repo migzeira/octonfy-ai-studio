@@ -14,10 +14,11 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import type { Agent } from "@/hooks/useRealtimeAgents";
-import type { PlacedItem, FurnitureType } from "@/hooks/useFurnitureEditor";
+import type { PlacedItem, FurnitureType, FloorTheme } from "@/hooks/useFurnitureEditor";
+import { ITEM_SIZES, WALKABLE_ITEM_TYPES, FLOOR_THEMES } from "@/hooks/useFurnitureEditor";
 import { startGameLoop } from "./engine/gameLoop";
 import {
-  TILE, COLS, ROWS,
+  TILE, COLS, ROWS, BLOCKED, FLOOR,
   buildTileMap, getWalkableTiles, findPath,
   DESK_SEATS, MEETING_SEATS, DESK_CONFIGS, LOUNGE_SEATS,
   WORK_W, MEET_X, BREAK_Y,
@@ -205,9 +206,10 @@ function drawChair(ctx: CanvasRenderingContext2D, col: number, row: number) {
   ctx.fillStyle = P.chairCush; rr(ctx, x + 5, cy - 1, TILE - 10, 7, 2); ctx.fill();
   ctx.fillStyle = P.chairHi; ctx.fillRect(x + 7, cy + 1, TILE - 14, 2);
 
-  // Backrest
-  ctx.fillStyle = P.chairBack; rr(ctx, x + 5, y + 1, TILE - 10, cy - 3, 3); ctx.fill();
-  ctx.fillStyle = P.chairCush; rr(ctx, x + 7, y + 3, TILE - 14, cy - 7, 2); ctx.fill();
+  // Backrest — fixed: use constant pixel height, not cy-3 (which grew with row index)
+  const backH = TILE / 2 - 4; // 12px
+  ctx.fillStyle = P.chairBack; rr(ctx, x + 5, y + 1, TILE - 10, backH, 3); ctx.fill();
+  ctx.fillStyle = P.chairCush; rr(ctx, x + 7, y + 3, TILE - 14, Math.max(4, backH - 4), 2); ctx.fill();
 
   // Headrest
   ctx.fillStyle = P.chairBack; rr(ctx, x + 8, y, TILE - 16, 5, 2); ctx.fill();
@@ -547,8 +549,13 @@ function drawCoffeeTable(ctx: CanvasRenderingContext2D, col: number, row: number
   ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(x + 4, y + TILE - 4, TILE * 2 - 8, 4);
 }
 
-/** Dispatch placed item by type */
-function drawPlacedItem(ctx: CanvasRenderingContext2D, type: FurnitureType, col: number, row: number) {
+/* ─── ROTATION HELPERS ────────────────────────────────────────── */
+function getRotatedSize(type: FurnitureType, rotation: number): [number, number] {
+  const [w, h] = ITEM_SIZES[type] ?? [1, 1];
+  return rotation % 2 === 1 ? [h, w] : [w, h];
+}
+
+function dispatchDraw(ctx: CanvasRenderingContext2D, type: FurnitureType, col: number, row: number) {
   switch (type) {
     case "desk":           drawDesk(ctx, col, row); break;
     case "chair":          drawChair(ctx, col, row); break;
@@ -565,29 +572,50 @@ function drawPlacedItem(ctx: CanvasRenderingContext2D, type: FurnitureType, col:
     case "clock":          drawClock(ctx, col, row); break;
     case "rug":            drawRug(ctx, col, row); break;
     case "poster": {
-      ctx.fillStyle = "#1a1a2e"; ctx.fillRect(col * TILE + 2, row * TILE + 2, TILE - 4, TILE - 4);
-      ctx.fillStyle = "#2a3060"; ctx.fillRect(col * TILE + 4, row * TILE + 4, TILE - 8, TILE - 8);
+      ctx.fillStyle = "#1a1a2e"; ctx.fillRect(col*TILE+2, row*TILE+2, TILE-4, TILE-4);
+      ctx.fillStyle = "#2a3060"; ctx.fillRect(col*TILE+4, row*TILE+4, TILE-8, TILE-8);
       ctx.fillStyle = "#6060c0"; ctx.font = "14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("🤖", col * TILE + TILE / 2, row * TILE + TILE / 2);
-      break;
+      ctx.fillText("🤖", col*TILE+TILE/2, row*TILE+TILE/2); break;
     }
     case "wall_h":
-      ctx.fillStyle = P.wall; ctx.fillRect(col * TILE, row * TILE + 12, TILE * 2, 8);
-      ctx.fillStyle = P.wallAccent; ctx.fillRect(col * TILE, row * TILE + 12, TILE * 2, 2);
-      break;
+      ctx.fillStyle = P.wall; ctx.fillRect(col*TILE, row*TILE+12, TILE*2, 8);
+      ctx.fillStyle = P.wallAccent; ctx.fillRect(col*TILE, row*TILE+12, TILE*2, 2); break;
     case "wall_v":
-      ctx.fillStyle = P.wall; ctx.fillRect(col * TILE + 12, row * TILE, 8, TILE * 2);
-      ctx.fillStyle = P.wallAccent; ctx.fillRect(col * TILE + 12, row * TILE, 2, TILE * 2);
-      break;
+      ctx.fillStyle = P.wall; ctx.fillRect(col*TILE+12, row*TILE, 8, TILE*2);
+      ctx.fillStyle = P.wallAccent; ctx.fillRect(col*TILE+12, row*TILE, 2, TILE*2); break;
   }
 }
 
+/** Draw a placed item with optional rotation (0=0°,1=90°CW,2=180°,3=270°CW) */
+function drawPlacedItem(ctx: CanvasRenderingContext2D, item: PlacedItem) {
+  const { type, col, row, rotation = 0 } = item;
+  if (rotation === 0) { dispatchDraw(ctx, type, col, row); return; }
+
+  const [origW, origH] = ITEM_SIZES[type] ?? [1, 1];
+  const [rw, rh] = getRotatedSize(type, rotation);
+
+  // Rotate around the centre of the rotated bounding box
+  const pivotX = col * TILE + rw * TILE / 2;
+  const pivotY = row * TILE + rh * TILE / 2;
+  const origCX = col * TILE + origW * TILE / 2;
+  const origCY = row * TILE + origH * TILE / 2;
+
+  ctx.save();
+  ctx.translate(pivotX, pivotY);
+  ctx.rotate(rotation * Math.PI / 2);
+  ctx.translate(-origCX, -origCY);
+  dispatchDraw(ctx, type, col, row);
+  ctx.restore();
+}
+
 /* ─── FULL OFFICE BACKGROUND ─────────────────────────────────── */
-function drawOffice(ctx: CanvasRenderingContext2D, placedItems: PlacedItem[]) {
+interface FloorColors { workA:string; workB:string; meetA:string; meetB:string; breakA:string; breakB:string; }
+
+function drawOffice(ctx: CanvasRenderingContext2D, placedItems: PlacedItem[], fc: FloorColors) {
   // Floors
-  fillCheckerboard(ctx, 0, TILE, WORK_W, CANVAS_H - TILE, P.workA, P.workB);
-  fillCheckerboard(ctx, MEET_X, TILE, CANVAS_W - MEET_X, BREAK_Y - TILE, P.meetA, P.meetB);
-  fillCheckerboard(ctx, MEET_X, BREAK_Y, CANVAS_W - MEET_X, CANVAS_H - BREAK_Y, P.breakA, P.breakB);
+  fillCheckerboard(ctx, 0, TILE, WORK_W, CANVAS_H - TILE, fc.workA, fc.workB);
+  fillCheckerboard(ctx, MEET_X, TILE, CANVAS_W - MEET_X, BREAK_Y - TILE, fc.meetA, fc.meetB);
+  fillCheckerboard(ctx, MEET_X, BREAK_Y, CANVAS_W - MEET_X, CANVAS_H - BREAK_Y, fc.breakA, fc.breakB);
 
   // Rugs
   drawRug(ctx, 24, 15); drawRug(ctx, 26, 15); drawRug(ctx, 28, 15);
@@ -632,7 +660,7 @@ function drawOffice(ctx: CanvasRenderingContext2D, placedItems: PlacedItem[]) {
   drawSmallPlant(ctx, 22, 14);
 
   // Placed custom items
-  for (const item of placedItems) drawPlacedItem(ctx, item.type, item.col, item.row);
+  for (const item of placedItems) drawPlacedItem(ctx, item);
 
   // Zone labels
   ctx.font = "bold 9px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "top";
@@ -873,34 +901,65 @@ interface OfficeCanvasProps {
   editorMode?:         boolean;
   selectedTool?:       FurnitureType | null;
   onTileClick?:        (col: number, row: number) => void;
+  onPlacedItemClick?:  (item: PlacedItem, screenX: number, screenY: number) => void;
+  floorTheme?:         FloorTheme;
+}
+
+/* ─── DYNAMIC TILE MAP (placed items block pathfinding) ───────── */
+function buildDynamicMap(base: number[][], items: PlacedItem[]): number[][] {
+  const map = base.map(r => [...r]);
+  for (const item of items) {
+    if (WALKABLE_ITEM_TYPES.has(item.type)) continue;
+    const [origW, origH] = ITEM_SIZES[item.type] ?? [1, 1];
+    const rot = item.rotation ?? 0;
+    const w = rot % 2 === 1 ? origH : origW;
+    const h = rot % 2 === 1 ? origW : origH;
+    for (let dc = 0; dc < w; dc++)
+      for (let dr = 0; dr < h; dr++) {
+        const c = item.col + dc, r = item.row + dr;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) map[r][c] = BLOCKED;
+      }
+  }
+  return map;
 }
 
 /* ─── COMPONENT ───────────────────────────────────────────────── */
 export default function OfficeCanvas({
   agents, onAgentClick, selectedAgentId,
   meetingParticipants, containerWidth, containerHeight,
-  placedItems = [], editorMode = false, selectedTool = null, onTileClick,
+  placedItems = [], editorMode = false, selectedTool = null,
+  onTileClick, onPlacedItemClick, floorTheme = "warm",
 }: OfficeCanvasProps) {
-  const canvasRef    = useRef<HTMLCanvasElement>(null);
-  const charsRef     = useRef<Map<string, Char>>(new Map());
-  const agentsRef    = useRef(agents);
-  const meetsRef     = useRef(meetingParticipants);
-  const selRef       = useRef(selectedAgentId);
-  const charImgsRef  = useRef<(HTMLImageElement | null)[]>([]);
-  const tileMapRef   = useRef(buildTileMap());
-  const walkRef      = useRef(getWalkableTiles(tileMapRef.current));
-  const placedRef    = useRef(placedItems);
-  const editorRef    = useRef(editorMode);
-  const toolRef      = useRef(selectedTool);
+  const canvasRef      = useRef<HTMLCanvasElement>(null);
+  const charsRef       = useRef<Map<string, Char>>(new Map());
+  const agentsRef      = useRef(agents);
+  const meetsRef       = useRef(meetingParticipants);
+  const selRef         = useRef(selectedAgentId);
+  const charImgsRef    = useRef<(HTMLImageElement | null)[]>([]);
+  const baseTileMapRef = useRef(buildTileMap());
+  const dynMapRef      = useRef(baseTileMapRef.current);
+  const walkRef        = useRef(getWalkableTiles(baseTileMapRef.current));
+  const placedRef      = useRef(placedItems);
+  const editorRef      = useRef(editorMode);
+  const toolRef        = useRef(selectedTool);
+  const themeRef       = useRef(floorTheme);
 
-  agentsRef.current  = agents;
-  meetsRef.current   = meetingParticipants;
-  selRef.current     = selectedAgentId;
-  placedRef.current  = placedItems;
-  editorRef.current  = editorMode;
-  toolRef.current    = selectedTool;
+  agentsRef.current = agents;
+  meetsRef.current  = meetingParticipants;
+  selRef.current    = selectedAgentId;
+  placedRef.current = placedItems;
+  editorRef.current = editorMode;
+  toolRef.current   = selectedTool;
+  themeRef.current  = floorTheme;
 
   const [hoverTile, setHoverTile] = useState({ col: -1, row: -1 });
+
+  // Rebuild dynamic tileMap + walkable list when placed items change
+  useEffect(() => {
+    const dyn = buildDynamicMap(baseTileMapRef.current, placedItems);
+    dynMapRef.current  = dyn;
+    walkRef.current    = getWalkableTiles(dyn);
+  }, [placedItems]);
 
   // Character init/cleanup
   useEffect(() => {
@@ -911,13 +970,13 @@ export default function OfficeCanvas({
   // Load char PNGs
   useEffect(() => { Promise.all(CHAR_URLS.map(loadImg)).then(imgs => { charImgsRef.current = imgs; }); }, []);
 
-  // Canvas hit-test helpers
+  // Canvas pixel coords → tile coords
   const getCanvasTile = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current; if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
     const px = (e.clientX - rect.left) * sx, py = (e.clientY - rect.top) * sy;
-    return { col: Math.floor(px / TILE), row: Math.floor(py / TILE), px, py };
+    return { col: Math.floor(px / TILE), row: Math.floor(py / TILE), px, py, screenX: e.clientX, screenY: e.clientY };
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -930,26 +989,40 @@ export default function OfficeCanvas({
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const t = getCanvasTile(e); if (!t) return;
-    if (editorRef.current && toolRef.current && onTileClick) {
-      onTileClick(t.col, t.row); return;
+
+    if (editorRef.current) {
+      if (toolRef.current && onTileClick) { onTileClick(t.col, t.row); return; }
+      // No tool selected: check if clicking an existing placed item
+      if (!toolRef.current && onPlacedItemClick) {
+        const hit = placedRef.current.find(item => {
+          const [origW, origH] = ITEM_SIZES[item.type] ?? [1, 1];
+          const rot = item.rotation ?? 0;
+          const w = rot % 2 === 1 ? origH : origW;
+          const h = rot % 2 === 1 ? origW : origH;
+          return t.col >= item.col && t.col < item.col + w && t.row >= item.row && t.row < item.row + h;
+        });
+        if (hit) { onPlacedItemClick(hit, t.screenX, t.screenY); return; }
+      }
+      return;
     }
-    // Agent click hit-test
+    // Normal mode: agent click hit-test
     for (const [id, ch] of charsRef.current) {
       if (t.px >= ch.x - CHAR_DW / 2 && t.px <= ch.x + CHAR_DW / 2 && t.py >= ch.y - CHAR_DH && t.py <= ch.y) {
         const ag = agentsRef.current.find(a => a.id === id);
         if (ag) { onAgentClick(ag, { x: e.clientX, y: e.clientY }); return; }
       }
     }
-  }, [getCanvasTile, onAgentClick, onTileClick]);
+  }, [getCanvasTile, onAgentClick, onTileClick, onPlacedItemClick]);
 
   // Game loop
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const map = tileMapRef.current, walk = walkRef.current;
 
     const stop = startGameLoop(canvas, {
       update(dt) {
         const meets = meetsRef.current;
+        const map  = dynMapRef.current;
+        const walk = walkRef.current;
         for (const [id, ch] of charsRef.current) {
           const ag = agentsRef.current.find(a => a.id === id); if (!ag) continue;
           const st = ag.status ?? "idle";
@@ -961,7 +1034,8 @@ export default function OfficeCanvas({
       },
       render(ctx) {
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-        drawOffice(ctx, placedRef.current);
+        const fc = FLOOR_THEMES[themeRef.current] ?? FLOOR_THEMES.warm;
+        drawOffice(ctx, placedRef.current, fc);
         if (editorRef.current) drawEditorOverlay(ctx, hoverTile.col, hoverTile.row, !!toolRef.current);
         const sorted = [...charsRef.current.values()].sort((a, b) => a.y - b.y);
         for (const ch of sorted) {
@@ -975,8 +1049,15 @@ export default function OfficeCanvas({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoverTile]);
 
+  // Scale canvas to fill container while keeping pixel-art crispness
+  const scale = containerWidth > 0 && containerHeight > 0
+    ? Math.min(containerWidth / CANVAS_W, containerHeight / CANVAS_H)
+    : 1;
+  const displayW = Math.round(CANVAS_W * scale);
+  const displayH = Math.round(CANVAS_H * scale);
+
   return (
-    <div className="relative w-full h-full overflow-auto" style={{ background: "#1a1830" }}>
+    <div className="relative w-full h-full overflow-auto flex items-start justify-start" style={{ background: "#1a1830" }}>
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
@@ -984,11 +1065,12 @@ export default function OfficeCanvas({
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={editorMode && selectedTool ? "cursor-crosshair" : "cursor-pointer"}
+        className={editorMode && selectedTool ? "cursor-crosshair" : editorMode ? "cursor-default" : "cursor-pointer"}
         style={{
           imageRendering: "pixelated",
-          width:  containerWidth  > 0 ? containerWidth  : "100%",
-          height: containerHeight > 0 ? containerHeight : "100%",
+          width:  displayW,
+          height: displayH,
+          flexShrink: 0,
         }}
       />
 

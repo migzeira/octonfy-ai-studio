@@ -6,6 +6,7 @@ import { useRealtimeCredits } from "@/hooks/useRealtimeCredits";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useRealtimeMeetings } from "@/hooks/useRealtimeMeetings";
 import { useFurnitureEditor } from "@/hooks/useFurnitureEditor";
+import type { PlacedItem } from "@/hooks/useFurnitureEditor";
 import OfficeCanvas from "@/components/office/OfficeCanvas";
 import OfficeEditorPanel from "@/components/office/OfficeEditorPanel";
 import OfficeTopBar from "@/components/office/OfficeTopBar";
@@ -60,7 +61,8 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const { activeMeeting } = useRealtimeMeetings(workspace.id);
   const {
     editorMode, selectedTool, setSelectedTool,
-    placedItems, placeItem, clearAll, toggleEditor,
+    placedItems, placeItem, removeItem, rotateItem, clearAll, toggleEditor,
+    floorTheme, setFloorTheme,
   } = useFurnitureEditor(workspace.id);
 
   const [activeTab, setActiveTab] = useState<"chat" | "meeting" | "status">("chat");
@@ -68,6 +70,7 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const [hireOpen, setHireOpen] = useState(false);
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [agentPopup, setAgentPopup] = useState<{ agent: Agent; screenX: number; screenY: number } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ item: PlacedItem; screenX: number; screenY: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
@@ -183,6 +186,11 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                 editorMode={editorMode}
                 selectedTool={selectedTool}
                 onTileClick={placeItem}
+                onPlacedItemClick={(item, sx, sy) => {
+                  const rect = containerRef.current?.getBoundingClientRect();
+                  setEditingItem({ item, screenX: sx - (rect?.left ?? 0), screenY: sy - (rect?.top ?? 0) });
+                }}
+                floorTheme={floorTheme}
               />
               {editorMode && (
                 <OfficeEditorPanel
@@ -190,7 +198,33 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
                   onSelectTool={setSelectedTool}
                   onClearAll={clearAll}
                   onClose={toggleEditor}
+                  floorTheme={floorTheme}
+                  onSetFloorTheme={setFloorTheme}
                 />
+              )}
+              {/* Item edit popup (rotate / delete) */}
+              {editingItem && editorMode && (
+                <>
+                  <div className="absolute inset-0 z-25" onClick={() => setEditingItem(null)} />
+                  <div
+                    className="absolute z-40 glassmorphism rounded-xl p-3 space-y-1.5"
+                    style={{ left: Math.max(8, editingItem.screenX - 80), top: Math.max(8, editingItem.screenY - 80) }}
+                  >
+                    <div className="text-[10px] text-white/50 font-mono text-center pb-1">{editingItem.item.type}</div>
+                    <button
+                      onClick={() => { rotateItem(editingItem.item.id); setEditingItem(null); }}
+                      className="w-full flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg text-white hover:bg-white/10 transition-colors"
+                    >
+                      🔄 Girar 90°
+                    </button>
+                    <button
+                      onClick={() => { removeItem(editingItem.item.id); setEditingItem(null); }}
+                      className="w-full flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-400/10 transition-colors"
+                    >
+                      🗑 Remover
+                    </button>
+                  </div>
+                </>
               )}
             </>
           )}
