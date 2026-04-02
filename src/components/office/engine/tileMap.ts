@@ -69,20 +69,13 @@ export function buildTileMap(): number[][] {
       for (let c = c0; c <= c1; c++) block(c, r);
   };
 
-  // ── Desk surfaces (3 cols × 2 rows each) ──
-  for (const d of DESK_CONFIGS)
-    blockRect(d.deskCol, d.deskCol + 2, d.deskRow, d.deskRow + 1);
+  // ── Structural top wall (always blocked regardless of furniture) ──
+  blockRect(0, COLS - 1, 0, 0);
 
-  // ── Bookshelves on top wall (col 0-20, row 0) ──
-  blockRect(0, 20, 0, 0);
+  // NOTE: Desk, meeting-table, and couch blocks are now managed by
+  // DEFAULT_OFFICE_LAYOUT + buildDynamicMap so they can be removed by users.
 
-  // ── Meeting table oval centre (col 27-33, row 5-7) ──
-  blockRect(27, 33, 5, 7);
-
-  // ── Couch in break area (col 23-32, row 14-16) ──
-  blockRect(23, 32, 14, 16);
-
-  // Ensure all seat tiles are walkable
+  // Ensure all seat tiles are walkable (safety net)
   for (const s of DESK_SEATS)    map[s.row][s.col] = FLOOR;
   for (const s of MEETING_SEATS) map[s.row][s.col] = FLOOR;
   for (const s of LOUNGE_SEATS)  map[s.row][s.col] = FLOOR;

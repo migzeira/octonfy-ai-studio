@@ -20,7 +20,7 @@ import { startGameLoop } from "./engine/gameLoop";
 import {
   TILE, COLS, ROWS, BLOCKED, FLOOR,
   buildTileMap, getWalkableTiles, findPath,
-  DESK_SEATS, MEETING_SEATS, DESK_CONFIGS, LOUNGE_SEATS,
+  DESK_SEATS, MEETING_SEATS, LOUNGE_SEATS,
   WORK_W, MEET_X, BREAK_Y,
 } from "./engine/tileMap";
 
@@ -365,9 +365,11 @@ function drawCactus(ctx: CanvasRenderingContext2D, col: number, row: number) {
   ctx.fillStyle = "#ffff80"; ctx.beginPath(); ctx.arc(x + 12, y + 4, 1, 0, Math.PI * 2); ctx.fill();
 }
 
-/** Meeting table */
-function drawMeetingTable(ctx: CanvasRenderingContext2D) {
-  const cx = 30 * TILE, cy = 6 * TILE;
+/** Meeting table — parameterized by top-left tile (col, row).
+ *  Default layout: col=26 row=3 → center at tile (30, 6) — same as original hardcoded. */
+function drawMeetingTableAt(ctx: CanvasRenderingContext2D, col: number, row: number) {
+  const cx = (col + 4) * TILE; // 4 tiles right of left edge
+  const cy = (row + 3) * TILE; // 3 tiles below top edge
   const rx = TILE * 4, ry = TILE * 2.5;
   ctx.fillStyle = "rgba(0,0,0,0.35)";
   ctx.beginPath(); ctx.ellipse(cx + 8, cy + 10, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
@@ -386,14 +388,34 @@ function drawMeetingTable(ctx: CanvasRenderingContext2D) {
   ctx.fillText("OCTONFY", cx, cy);
 }
 
-/** Meeting chair */
-function drawMeetingChair(ctx: CanvasRenderingContext2D, col: number, row: number, dir: number) {
-  const x = col * TILE + 4, y = row * TILE + 4, w = TILE - 8, h = TILE - 8;
-  ctx.fillStyle = P.chairBack; rr(ctx, x, y, w, h, 2); ctx.fill();
-  ctx.fillStyle = P.chairCush; rr(ctx, x + 2, y + 2, w - 4, h - 4, 2); ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.25)";
-  const [ox, oy] = [[0, -4], [0, 4], [-4, 0], [4, 0]][Math.min(dir, 3)];
-  ctx.beginPath(); ctx.arc(x + w / 2 + ox, y + h / 2 + oy, 2, 0, Math.PI * 2); ctx.fill();
+/** Wooden door with glass panel: 1×2 tiles */
+function drawDoor(ctx: CanvasRenderingContext2D, col: number, row: number) {
+  const x = col * TILE, y = row * TILE;
+  const dw = TILE, dh = TILE * 2;
+
+  // Door frame (dark wood)
+  ctx.fillStyle = "#2a1a08"; ctx.fillRect(x, y, dw, dh);
+  // Door panel (medium wood)
+  ctx.fillStyle = "#6a4020"; rr(ctx, x + 3, y + 2, dw - 6, dh - 4, 3); ctx.fill();
+  // Highlights
+  ctx.fillStyle = "#8a5830"; ctx.fillRect(x + 5, y + 4, dw - 10, 3);
+  ctx.fillStyle = "#4a2c10"; ctx.fillRect(x + 5, y + dh - 7, dw - 10, 3);
+  // Upper glass panel
+  const gpY = y + 6, gpH = Math.floor(dh * 0.35);
+  ctx.fillStyle = "#2a4880"; rr(ctx, x + 7, gpY, dw - 14, gpH, 2); ctx.fill();
+  ctx.fillStyle = "rgba(120,180,255,0.35)"; ctx.fillRect(x + 9, gpY + 2, dw - 18, gpH - 4);
+  // Glass shine
+  ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(x + 9, gpY + 2, 3, gpH - 4);
+  // Lower wood panel
+  const lpY = gpY + gpH + 4, lpH = dh - lpY + y - 6;
+  ctx.fillStyle = "#5a3818"; rr(ctx, x + 7, lpY, dw - 14, lpH, 2); ctx.fill();
+  ctx.fillStyle = "#7a5030"; ctx.fillRect(x + 9, lpY + 3, dw - 18, 3);
+  // Doorknob
+  const kx = x + dw - 8, ky = y + Math.floor(dh * 0.55);
+  ctx.fillStyle = "#c8903c"; ctx.beginPath(); ctx.arc(kx, ky, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#f0b850"; ctx.beginPath(); ctx.arc(kx - 1, ky - 1, 1.5, 0, Math.PI * 2); ctx.fill();
+  // Bottom threshold line
+  ctx.fillStyle = "#1a1008"; ctx.fillRect(x + 3, y + dh - 3, dw - 6, 3);
 }
 
 /** Flat-screen TV: 3×2 tiles */
@@ -577,12 +599,61 @@ function dispatchDraw(ctx: CanvasRenderingContext2D, type: FurnitureType, col: n
       ctx.fillStyle = "#6060c0"; ctx.font = "14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText("🤖", col*TILE+TILE/2, row*TILE+TILE/2); break;
     }
-    case "wall_h":
-      ctx.fillStyle = P.wall; ctx.fillRect(col*TILE, row*TILE+12, TILE*2, 8);
-      ctx.fillStyle = P.wallAccent; ctx.fillRect(col*TILE, row*TILE+12, TILE*2, 2); break;
-    case "wall_v":
-      ctx.fillStyle = P.wall; ctx.fillRect(col*TILE+12, row*TILE, 8, TILE*2);
-      ctx.fillStyle = P.wallAccent; ctx.fillRect(col*TILE+12, row*TILE, 2, TILE*2); break;
+    case "wall_h": {
+      // Horizontal brick wall — fills the full tile height for a proper wall segment
+      const wx = col*TILE, wy = row*TILE, ww = TILE*2, wh = TILE;
+      // Base
+      ctx.fillStyle = "#1e1c30"; ctx.fillRect(wx, wy, ww, wh);
+      // Brick rows (alternating offset)
+      const bH = 9, mortar = 2, bW = TILE - 2;
+      for (let ri = 0; ri * (bH + mortar) < wh; ri++) {
+        const by = wy + ri * (bH + mortar);
+        const offset = ri % 2 === 0 ? 0 : bW / 2;
+        for (let bx2 = -offset; bx2 < ww; bx2 += bW + mortar) {
+          const bx = wx + bx2;
+          const bClipX = Math.max(bx, wx);
+          const bClipW = Math.min(bW, wx + ww - bClipX);
+          if (bClipW <= 2) continue;
+          ctx.fillStyle = ri % 2 === 0 ? "#38304e" : "#302848";
+          ctx.fillRect(bClipX, by, bClipW, Math.min(bH, wy + wh - by));
+          ctx.fillStyle = "rgba(255,255,255,0.06)";
+          ctx.fillRect(bClipX, by, bClipW, 2);
+        }
+      }
+      // Top cap highlight
+      ctx.fillStyle = "#5a5090"; ctx.fillRect(wx, wy, ww, 2);
+      // Bottom shadow
+      ctx.fillStyle = "#110e20"; ctx.fillRect(wx, wy + wh - 2, ww, 2);
+      // Side shadow
+      ctx.fillStyle = "#110e20"; ctx.fillRect(wx + ww - 2, wy, 2, wh);
+      break;
+    }
+    case "wall_v": {
+      // Vertical brick wall
+      const vx = col*TILE, vy = row*TILE, vw = TILE, vh = TILE*2;
+      ctx.fillStyle = "#1e1c30"; ctx.fillRect(vx, vy, vw, vh);
+      const bW2 = 9, mortar2 = 2, bH2 = TILE - 2;
+      for (let ci = 0; ci * (bW2 + mortar2) < vw; ci++) {
+        const bx3 = vx + ci * (bW2 + mortar2);
+        const offset = ci % 2 === 0 ? 0 : bH2 / 2;
+        for (let by3 = -offset; by3 < vh; by3 += bH2 + mortar2) {
+          const by = vy + by3;
+          const bClipY = Math.max(by, vy);
+          const bClipH = Math.min(bH2, vy + vh - bClipY);
+          if (bClipH <= 2) continue;
+          ctx.fillStyle = ci % 2 === 0 ? "#38304e" : "#302848";
+          ctx.fillRect(bx3, bClipY, Math.min(bW2, vx + vw - bx3), bClipH);
+          ctx.fillStyle = "rgba(255,255,255,0.06)";
+          ctx.fillRect(bx3, bClipY, Math.min(bW2, vx + vw - bx3), 2);
+        }
+      }
+      ctx.fillStyle = "#5a5090"; ctx.fillRect(vx, vy, 2, vh);
+      ctx.fillStyle = "#110e20"; ctx.fillRect(vx + vw - 2, vy, 2, vh);
+      ctx.fillStyle = "#110e20"; ctx.fillRect(vx, vy + vh - 2, vw, 2);
+      break;
+    }
+    case "door":        drawDoor(ctx, col, row); break;
+    case "meeting_table": drawMeetingTableAt(ctx, col, row); break;
   }
 }
 
@@ -612,57 +683,31 @@ function drawPlacedItem(ctx: CanvasRenderingContext2D, item: PlacedItem) {
 interface FloorColors { workA:string; workB:string; meetA:string; meetB:string; breakA:string; breakB:string; }
 
 function drawOffice(ctx: CanvasRenderingContext2D, placedItems: PlacedItem[], fc: FloorColors) {
-  // Floors
+  // ── Floors ────────────────────────────────────────────────────────
   fillCheckerboard(ctx, 0, TILE, WORK_W, CANVAS_H - TILE, fc.workA, fc.workB);
   fillCheckerboard(ctx, MEET_X, TILE, CANVAS_W - MEET_X, BREAK_Y - TILE, fc.meetA, fc.meetB);
   fillCheckerboard(ctx, MEET_X, BREAK_Y, CANVAS_W - MEET_X, CANVAS_H - BREAK_Y, fc.breakA, fc.breakB);
 
-  // Rugs
-  drawRug(ctx, 24, 15); drawRug(ctx, 26, 15); drawRug(ctx, 28, 15);
-
-  // Walls
+  // ── Structural walls (always drawn regardless of placed items) ────
+  // Top wall strip
   ctx.fillStyle = P.wall; ctx.fillRect(0, 0, CANVAS_W, TILE);
   ctx.fillStyle = P.wallAccent; ctx.fillRect(MEET_X, 0, CANVAS_W - MEET_X, 4);
+  // Vertical divider between work area and meeting/break zones
   ctx.fillStyle = P.wall; ctx.fillRect(MEET_X - TILE, 0, TILE, CANVAS_H);
   ctx.fillStyle = P.wallHi; ctx.fillRect(MEET_X - 4, 0, 4, CANVAS_H);
+  // Horizontal divider between meeting room and break area
   ctx.fillRect(MEET_X, BREAK_Y - 8, CANVAS_W - MEET_X, 8);
 
-  // Top wall decor
-  for (let c = 0; c < 20; c += 2) drawBookshelf(ctx, c, 0);
-  drawWhiteboard(ctx, 23, 0);
-  drawClock(ctx, 37, 0);
-
-  // Desks
-  for (const d of DESK_CONFIGS) {
-    drawDesk(ctx, d.deskCol, d.deskRow);
-    drawChair(ctx, d.deskCol + 1, d.deskRow + 3);
+  // ── All furniture comes from placedItems (DEFAULT_OFFICE_LAYOUT + user edits) ──
+  // Walkable items (rugs, posters, clocks) are drawn first so solid items sit on top
+  for (const item of placedItems) {
+    if (WALKABLE_ITEM_TYPES.has(item.type)) drawPlacedItem(ctx, item);
+  }
+  for (const item of placedItems) {
+    if (!WALKABLE_ITEM_TYPES.has(item.type)) drawPlacedItem(ctx, item);
   }
 
-  // Work area plants (variety)
-  drawPlant(ctx, 0, 3);
-  drawSnakePlant(ctx, 0, 13);
-  drawPlant(ctx, 20, 3);
-  drawCactus(ctx, 20, 13);
-
-  // Meeting room
-  drawMeetingTable(ctx);
-  for (let i = 0; i < 6; i++) drawMeetingChair(ctx, MEETING_SEATS[i].col, MEETING_SEATS[i].row, MEETING_SEATS[i].dir);
-  drawSmallPlant(ctx, 22, 11);
-  drawSmallPlant(ctx, 37, 1);
-
-  // Break area — TV lounge
-  drawTV(ctx, 27, 13);
-  drawCouch(ctx, 23, 16);
-  drawCoffeeTable(ctx, 24, 15);
-  drawCoffeeMachine(ctx, 35, 13);
-  drawCactus(ctx, 22, 18);
-  drawSmallPlant(ctx, 37, 18);
-  drawSmallPlant(ctx, 22, 14);
-
-  // Placed custom items
-  for (const item of placedItems) drawPlacedItem(ctx, item);
-
-  // Zone labels
+  // ── Zone labels ───────────────────────────────────────────────────
   ctx.font = "bold 9px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "top";
   ctx.fillStyle = "rgba(220,170,80,0.4)"; ctx.fillText("ÁREA DE TRABALHO", 4, TILE + 4);
   ctx.fillStyle = "rgba(100,140,255,0.45)"; ctx.fillText("SALA DE REUNIÃO", MEET_X + 4, TILE + 4);
@@ -920,6 +965,11 @@ function buildDynamicMap(base: number[][], items: PlacedItem[]): number[][] {
         if (r >= 0 && r < ROWS && c >= 0 && c < COLS) map[r][c] = BLOCKED;
       }
   }
+  // Always keep agent seat tiles walkable — agents must be able to reach their seats
+  // even if a piece of furniture footprint overlaps the seat tile
+  for (const s of DESK_SEATS)    map[s.row][s.col] = FLOOR;
+  for (const s of MEETING_SEATS) map[s.row][s.col] = FLOOR;
+  for (const s of LOUNGE_SEATS)  map[s.row][s.col] = FLOOR;
   return map;
 }
 
@@ -1049,9 +1099,11 @@ export default function OfficeCanvas({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoverTile]);
 
-  // Scale canvas to fill container while keeping pixel-art crispness
-  const scale = containerWidth > 0 && containerHeight > 0
-    ? Math.min(containerWidth / CANVAS_W, containerHeight / CANVAS_H)
+  // Scale canvas to fill the container HEIGHT fully (may scroll horizontally).
+  // This ensures the office content is always rendered at its intended size rather
+  // than being shrunk to fit the width, giving users a bigger, game-like view.
+  const scale = containerHeight > 0
+    ? Math.max(containerHeight / CANVAS_H, 0.85)   // min 85% size on very short screens
     : 1;
   const displayW = Math.round(CANVAS_W * scale);
   const displayH = Math.round(CANVAS_H * scale);

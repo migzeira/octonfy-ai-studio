@@ -15,7 +15,7 @@ export default function OfficeEditorPanel({
 }: Props) {
   return (
     <div
-      className="absolute left-3 top-3 z-40 w-52 rounded-2xl border border-white/10 overflow-hidden"
+      className="absolute right-4 top-[106px] z-40 w-52 rounded-2xl border border-white/10 overflow-hidden"
       style={{ background: "rgba(14,12,24,0.95)", backdropFilter: "blur(12px)" }}
     >
       {/* Header */}
@@ -98,7 +98,7 @@ export default function OfficeEditorPanel({
                      hover:text-red-400 py-1.5 rounded-lg hover:bg-red-400/10 transition-all"
         >
           <Trash2 className="h-3 w-3" />
-          Limpar tudo
+          Restaurar padrão
         </button>
       </div>
     </div>

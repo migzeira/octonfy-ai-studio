@@ -4,7 +4,7 @@ export type FurnitureType =
   | "desk" | "chair" | "plant" | "plant_small" | "cactus" | "snake_plant"
   | "bookshelf" | "tv" | "couch" | "coffee_table"
   | "coffee_machine" | "whiteboard" | "clock" | "rug" | "poster"
-  | "wall_h" | "wall_v";
+  | "wall_h" | "wall_v" | "door" | "meeting_table";
 
 export interface PlacedItem {
   id: string;
@@ -61,10 +61,14 @@ export const ITEM_SIZES: Record<FurnitureType, [number, number]> = {
   poster:         [1, 1],
   wall_h:         [2, 1],
   wall_v:         [1, 2],
+  door:           [1, 2],
+  meeting_table:  [8, 6],
 };
 
-// Items that agents can walk over (not blocking)
-export const WALKABLE_ITEM_TYPES = new Set<FurnitureType>(["rug", "poster", "clock"]);
+// Items that agents can walk over (not blocking pathfinding)
+export const WALKABLE_ITEM_TYPES = new Set<FurnitureType>([
+  "rug", "poster", "clock", "door",
+]);
 
 export const FURNITURE_CATALOG = [
   {
@@ -95,9 +99,15 @@ export const FURNITURE_CATALOG = [
     ],
   },
   {
+    category: "Sala de Reunião",
+    items: [
+      { type: "meeting_table" as FurnitureType, label: "Mesa Oval", emoji: "⬭", size: [8, 6] },
+      { type: "whiteboard" as FurnitureType, label: "Quadro Branco", emoji: "📋", size: [2, 1] },
+    ],
+  },
+  {
     category: "Decoração",
     items: [
-      { type: "whiteboard" as FurnitureType, label: "Quadro Branco", emoji: "📋", size: [2, 1] },
       { type: "rug" as FurnitureType, label: "Tapete", emoji: "🟫", size: [2, 2] },
       { type: "poster" as FurnitureType, label: "Poster", emoji: "🖼", size: [1, 1] },
     ],
@@ -107,12 +117,67 @@ export const FURNITURE_CATALOG = [
     items: [
       { type: "wall_h" as FurnitureType, label: "Parede H", emoji: "🧱", size: [2, 1] },
       { type: "wall_v" as FurnitureType, label: "Parede V", emoji: "🧱", size: [1, 2] },
+      { type: "door" as FurnitureType, label: "Porta", emoji: "🚪", size: [1, 2] },
     ],
   },
 ];
 
+// ── DEFAULT OFFICE LAYOUT ────────────────────────────────────────────
+// All standard furniture is stored as placed items so the user can move/remove anything.
+export const DEFAULT_OFFICE_LAYOUT: PlacedItem[] = [
+  // Bookshelves on top wall (col 0-18, row 0)
+  { id: "def-shelf-0",  type: "bookshelf", col:  0, row: 0, rotation: 0 },
+  { id: "def-shelf-2",  type: "bookshelf", col:  2, row: 0, rotation: 0 },
+  { id: "def-shelf-4",  type: "bookshelf", col:  4, row: 0, rotation: 0 },
+  { id: "def-shelf-6",  type: "bookshelf", col:  6, row: 0, rotation: 0 },
+  { id: "def-shelf-8",  type: "bookshelf", col:  8, row: 0, rotation: 0 },
+  { id: "def-shelf-10", type: "bookshelf", col: 10, row: 0, rotation: 0 },
+  { id: "def-shelf-12", type: "bookshelf", col: 12, row: 0, rotation: 0 },
+  { id: "def-shelf-14", type: "bookshelf", col: 14, row: 0, rotation: 0 },
+  { id: "def-shelf-16", type: "bookshelf", col: 16, row: 0, rotation: 0 },
+  { id: "def-shelf-18", type: "bookshelf", col: 18, row: 0, rotation: 0 },
+  // Top wall decor
+  { id: "def-whiteboard-0", type: "whiteboard",    col: 23, row: 0, rotation: 0 },
+  { id: "def-clock-0",      type: "clock",         col: 37, row: 0, rotation: 0 },
+  // Work desks + chairs (6 positions matching DESK_CONFIGS)
+  { id: "def-desk-0",  type: "desk",  col:  1, row:  2, rotation: 0 },
+  { id: "def-chair-0", type: "chair", col:  2, row:  5, rotation: 0 },
+  { id: "def-desk-1",  type: "desk",  col:  6, row:  2, rotation: 0 },
+  { id: "def-chair-1", type: "chair", col:  7, row:  5, rotation: 0 },
+  { id: "def-desk-2",  type: "desk",  col: 11, row:  2, rotation: 0 },
+  { id: "def-chair-2", type: "chair", col: 12, row:  5, rotation: 0 },
+  { id: "def-desk-3",  type: "desk",  col: 16, row:  2, rotation: 0 },
+  { id: "def-chair-3", type: "chair", col: 17, row:  5, rotation: 0 },
+  { id: "def-desk-4",  type: "desk",  col:  1, row: 11, rotation: 0 },
+  { id: "def-chair-4", type: "chair", col:  2, row: 14, rotation: 0 },
+  { id: "def-desk-5",  type: "desk",  col:  6, row: 11, rotation: 0 },
+  { id: "def-chair-5", type: "chair", col:  7, row: 14, rotation: 0 },
+  // Work area plants (variety)
+  { id: "def-plant-0", type: "plant",       col:  0, row:  3, rotation: 0 },
+  { id: "def-plant-1", type: "snake_plant", col:  0, row: 13, rotation: 0 },
+  { id: "def-plant-2", type: "plant",       col: 20, row:  3, rotation: 0 },
+  { id: "def-plant-3", type: "cactus",      col: 20, row: 13, rotation: 0 },
+  // Meeting room — oval table + decor
+  { id: "def-meet-table", type: "meeting_table", col: 26, row: 3, rotation: 0 },
+  { id: "def-plant-4",    type: "plant_small",   col: 22, row: 11, rotation: 0 },
+  { id: "def-plant-5",    type: "plant_small",   col: 37, row:  1, rotation: 0 },
+  // Break area — TV lounge
+  { id: "def-tv-0",           type: "tv",             col: 27, row: 13, rotation: 0 },
+  { id: "def-couch-0",        type: "couch",          col: 23, row: 16, rotation: 0 },
+  { id: "def-coffee-table-0", type: "coffee_table",   col: 25, row: 15, rotation: 0 },
+  { id: "def-coffee-mach-0",  type: "coffee_machine", col: 35, row: 13, rotation: 0 },
+  { id: "def-cactus-0",       type: "cactus",         col: 22, row: 18, rotation: 0 },
+  { id: "def-plant-6",        type: "plant_small",    col: 37, row: 18, rotation: 0 },
+  { id: "def-plant-7",        type: "plant_small",    col: 22, row: 14, rotation: 0 },
+  // Rugs in break area (walkable — drawn under other items)
+  { id: "def-rug-0", type: "rug", col: 24, row: 15, rotation: 0 },
+  { id: "def-rug-1", type: "rug", col: 27, row: 15, rotation: 0 },
+];
+
+// ── HOOK ─────────────────────────────────────────────────────────────
+// localStorage key v2: fresh start with DEFAULT_OFFICE_LAYOUT for all workspaces
 export function useFurnitureEditor(workspaceId: string) {
-  const itemsKey = `octonfy-office-${workspaceId}`;
+  const itemsKey = `octonfy-office-v2-${workspaceId}`;
   const themeKey = `octonfy-floor-${workspaceId}`;
 
   const [editorMode, setEditorMode] = useState(false);
@@ -120,19 +185,25 @@ export function useFurnitureEditor(workspaceId: string) {
   const [placedItems, setPlacedItems] = useState<PlacedItem[]>([]);
   const [floorTheme, setFloorThemeState] = useState<FloorTheme>("warm");
 
-  // Load from localStorage
+  // Load from localStorage; if key absent, seed with DEFAULT_OFFICE_LAYOUT
   useEffect(() => {
     try {
       const raw = localStorage.getItem(itemsKey);
-      if (raw) setPlacedItems(JSON.parse(raw));
-    } catch { /* ignore */ }
+      if (raw !== null) {
+        setPlacedItems(JSON.parse(raw));
+      } else {
+        setPlacedItems(DEFAULT_OFFICE_LAYOUT);
+      }
+    } catch {
+      setPlacedItems(DEFAULT_OFFICE_LAYOUT);
+    }
     try {
       const t = localStorage.getItem(themeKey) as FloorTheme | null;
       if (t && t in FLOOR_THEMES) setFloorThemeState(t);
     } catch { /* ignore */ }
   }, [itemsKey, themeKey]);
 
-  // Persist items
+  // Persist items on every change
   useEffect(() => {
     try { localStorage.setItem(itemsKey, JSON.stringify(placedItems)); } catch { /* ignore */ }
   }, [placedItems, itemsKey]);
@@ -163,7 +234,8 @@ export function useFurnitureEditor(workspaceId: string) {
     ));
   };
 
-  const clearAll = () => setPlacedItems([]);
+  // Restore to default layout (not an empty slate)
+  const clearAll = () => setPlacedItems(DEFAULT_OFFICE_LAYOUT);
 
   const toggleEditor = () => {
     setEditorMode(prev => {
