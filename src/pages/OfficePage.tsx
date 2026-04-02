@@ -5,7 +5,9 @@ import { useRealtimeAgents } from "@/hooks/useRealtimeAgents";
 import { useRealtimeCredits } from "@/hooks/useRealtimeCredits";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useRealtimeMeetings } from "@/hooks/useRealtimeMeetings";
+import { useFurnitureEditor } from "@/hooks/useFurnitureEditor";
 import OfficeCanvas from "@/components/office/OfficeCanvas";
+import OfficeEditorPanel from "@/components/office/OfficeEditorPanel";
 import OfficeTopBar from "@/components/office/OfficeTopBar";
 import ChatPanel from "@/components/office/ChatPanel";
 import MeetingPanel from "@/components/office/MeetingPanel";
@@ -14,7 +16,7 @@ import NewMeetingModal from "@/components/office/NewMeetingModal";
 import HireAgentModal from "@/components/agents/HireAgentModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Users, MessageSquare, User, Video, Loader2 } from "lucide-react";
+import { Users, MessageSquare, User, Video, Loader2, Layers } from "lucide-react";
 import type { Agent } from "@/hooks/useRealtimeAgents";
 
 export default function OfficePage() {
@@ -56,6 +58,10 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
   const { credits } = useRealtimeCredits(workspace.id);
   const { messages } = useRealtimeMessages(workspace.id);
   const { activeMeeting } = useRealtimeMeetings(workspace.id);
+  const {
+    editorMode, selectedTool, setSelectedTool,
+    placedItems, placeItem, clearAll, toggleEditor,
+  } = useFurnitureEditor(workspace.id);
 
   const [activeTab, setActiveTab] = useState<"chat" | "meeting" | "status">("chat");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -79,11 +85,11 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAgentPopup(null);
+      if (e.key === "Escape") { setAgentPopup(null); if (editorMode) toggleEditor(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [editorMode, toggleEditor]);
 
   const meetingParticipants: string[] = activeMeeting?.participants || [];
 
@@ -141,6 +147,19 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
           onNewTaskClick={() => {}}
         />
 
+        {/* Personalizar button (top-right of canvas area) */}
+        <button
+          onClick={toggleEditor}
+          className={`absolute top-16 right-4 z-30 flex items-center gap-1.5 text-xs px-3 py-1.5
+                      rounded-lg border transition-all font-medium
+                      ${editorMode
+                        ? "bg-primary/20 border-primary/60 text-primary"
+                        : "bg-black/40 border-white/10 text-white/60 hover:text-white hover:border-white/30"}`}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          {editorMode ? "Sair do editor" : "Personalizar"}
+        </button>
+
         <div className="w-full h-full pt-14">
           {agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full">
@@ -152,14 +171,28 @@ function OfficePageContent({ workspace }: { workspace: WorkspaceData }) {
               </Button>
             </div>
           ) : (
-            <OfficeCanvas
-              agents={agents}
-              onAgentClick={handleAgentClick}
-              selectedAgentId={agentPopup?.agent.id || null}
-              meetingParticipants={meetingParticipants}
-              containerWidth={containerSize.width}
-              containerHeight={containerSize.height - 56}
-            />
+            <>
+              <OfficeCanvas
+                agents={agents}
+                onAgentClick={handleAgentClick}
+                selectedAgentId={agentPopup?.agent.id || null}
+                meetingParticipants={meetingParticipants}
+                containerWidth={containerSize.width}
+                containerHeight={containerSize.height - 56}
+                placedItems={placedItems}
+                editorMode={editorMode}
+                selectedTool={selectedTool}
+                onTileClick={placeItem}
+              />
+              {editorMode && (
+                <OfficeEditorPanel
+                  selectedTool={selectedTool}
+                  onSelectTool={setSelectedTool}
+                  onClearAll={clearAll}
+                  onClose={toggleEditor}
+                />
+              )}
+            </>
           )}
         </div>
 

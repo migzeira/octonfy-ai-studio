@@ -46,6 +46,15 @@ export const MEETING_SEATS = [
   { col: 34, row:  9, dir: 3 }, // bottom-right, facing up
 ];
 
+/* ─── LOUNGE SEATS (break area — agents rest near TV) ────────── */
+// Seats in front of the couch, facing up toward the TV wall
+// dir: 3=UP (watching TV at the top of break area)
+export const LOUNGE_SEATS = [
+  { col: 25, row: 17, dir: 3 }, // left couch seat
+  { col: 27, row: 17, dir: 3 }, // center couch seat
+  { col: 30, row: 17, dir: 3 }, // right couch seat
+];
+
 /* ─── TILE MAP BUILDER ───────────────────────────────────────── */
 export function buildTileMap(): number[][] {
   const map: number[][] = Array.from({ length: ROWS }, () =>
@@ -76,6 +85,7 @@ export function buildTileMap(): number[][] {
   // Ensure all seat tiles are walkable
   for (const s of DESK_SEATS)    map[s.row][s.col] = FLOOR;
   for (const s of MEETING_SEATS) map[s.row][s.col] = FLOOR;
+  for (const s of LOUNGE_SEATS)  map[s.row][s.col] = FLOOR;
 
   return map;
 }
